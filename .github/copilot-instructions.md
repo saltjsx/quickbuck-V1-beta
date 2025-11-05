@@ -9,3 +9,4 @@ You MUST follow these instructions to ensure this codebase works well.
 - Anything you do, IMPLEMENT IT FULLY. Do not leave things half done.
 - Always use the todos tool provided to keep track of tasks.
 - DO NOT write useless readme files or "documentation" that adds no value. NO "SUMMARY FILES" unless explicitly asked. NO "NEXT STEPS" files. NO MARKDOWN FILES UNLESS I EXPLICITY ASK YOU!
+  DO NOT use npx convex deploy. find ways to test without deploying. i already have it fully deployed

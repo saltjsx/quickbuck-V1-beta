@@ -11,11 +11,13 @@
     },
     "routeIdToServerBundleId": {
       "routes/home": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/landing": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/sign-in": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/sign-up": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/success": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/maintenance": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/panel": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/rules": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/admin/maintenance": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/dashboard/index": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/leaderboard": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -37,9 +39,9 @@
     },
     "routes": {
       "root": {
-        "path": "",
         "id": "root",
         "file": "app/root.tsx",
+        "path": "",
         "config": {}
       },
       "routes/home": {
@@ -47,6 +49,15 @@
         "parentId": "root",
         "file": "app/routes/home.tsx",
         "index": true,
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/landing": {
+        "id": "routes/landing",
+        "parentId": "root",
+        "file": "app/routes/landing.tsx",
+        "path": "home",
         "config": {
           "runtime": "nodejs"
         }
@@ -92,6 +103,15 @@
         "parentId": "root",
         "file": "app/routes/panel.tsx",
         "path": "panel",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/rules": {
+        "id": "routes/rules",
+        "parentId": "root",
+        "file": "app/routes/rules.tsx",
+        "path": "rules",
         "config": {
           "runtime": "nodejs"
         }
@@ -267,11 +287,11 @@
     }
   },
   "reactRouterConfig": {
-    "appDirectory": "/Users/abdul/Documents/quickbuck-v1b/app",
+    "appDirectory": "C:/Users/bugbr/Downloads/quickbuck-v1b-main/quickbuck-v1b-main/app",
     "basename": "/",
-    "buildDirectory": "/Users/abdul/Documents/quickbuck-v1b/build",
+    "buildDirectory": "C:/Users/bugbr/Downloads/quickbuck-v1b-main/quickbuck-v1b-main/build",
     "future": {
-      "unstable_middleware": false,
+      "v8_middleware": false,
       "unstable_optimizeDeps": false,
       "unstable_splitRouteModules": false,
       "unstable_subResourceIntegrity": false,
@@ -279,15 +299,21 @@
     },
     "routes": {
       "root": {
-        "path": "",
         "id": "root",
-        "file": "root.tsx"
+        "file": "root.tsx",
+        "path": ""
       },
       "routes/home": {
         "id": "routes/home",
         "parentId": "root",
         "file": "routes/home.tsx",
         "index": true
+      },
+      "routes/landing": {
+        "id": "routes/landing",
+        "parentId": "root",
+        "file": "routes/landing.tsx",
+        "path": "home"
       },
       "routes/sign-in": {
         "id": "routes/sign-in",
@@ -318,6 +344,12 @@
         "parentId": "root",
         "file": "routes/panel.tsx",
         "path": "panel"
+      },
+      "routes/rules": {
+        "id": "routes/rules",
+        "parentId": "root",
+        "file": "routes/rules.tsx",
+        "path": "rules"
       },
       "routes/admin/maintenance": {
         "id": "routes/admin/maintenance",
@@ -439,7 +471,125 @@
     },
     "serverBuildFile": "index.js",
     "serverModuleFormat": "esm",
-    "ssr": true
+    "ssr": true,
+    "unstable_routeConfig": [
+      {
+        "id": "root",
+        "path": "",
+        "file": "root.tsx",
+        "children": [
+          {
+            "file": "routes/home.tsx",
+            "index": true
+          },
+          {
+            "file": "routes/landing.tsx",
+            "path": "home"
+          },
+          {
+            "file": "routes/sign-in.tsx",
+            "path": "sign-in/*"
+          },
+          {
+            "file": "routes/sign-up.tsx",
+            "path": "sign-up/*"
+          },
+          {
+            "file": "routes/success.tsx",
+            "path": "success"
+          },
+          {
+            "file": "routes/maintenance.tsx",
+            "path": "maintenance"
+          },
+          {
+            "file": "routes/panel.tsx",
+            "path": "panel"
+          },
+          {
+            "file": "routes/rules.tsx",
+            "path": "rules"
+          },
+          {
+            "file": "routes/admin/maintenance.tsx",
+            "path": "admin/maintenance"
+          },
+          {
+            "file": "routes/dashboard/layout.tsx",
+            "children": [
+              {
+                "file": "routes/dashboard/index.tsx",
+                "path": "dashboard"
+              },
+              {
+                "file": "routes/leaderboard.tsx",
+                "path": "leaderboard"
+              },
+              {
+                "file": "routes/marketplace.tsx",
+                "path": "marketplace"
+              },
+              {
+                "file": "routes/crypto.tsx",
+                "path": "crypto"
+              },
+              {
+                "file": "routes/crypto.$symbol.tsx",
+                "path": "crypto/:symbol"
+              },
+              {
+                "file": "routes/stocks.tsx",
+                "path": "stocks"
+              },
+              {
+                "file": "routes/stocks.$symbol.tsx",
+                "path": "stocks/:symbol"
+              },
+              {
+                "file": "routes/portfolio.tsx",
+                "path": "portfolio"
+              },
+              {
+                "file": "routes/dashboard/company-marketplace.tsx",
+                "path": "company-marketplace"
+              },
+              {
+                "file": "routes/gamble.tsx",
+                "path": "gamble"
+              },
+              {
+                "file": "routes/upgrades.tsx",
+                "path": "upgrades"
+              },
+              {
+                "file": "routes/dashboard/accounts.tsx",
+                "path": "accounts"
+              },
+              {
+                "file": "routes/dashboard/transfers.tsx",
+                "path": "transfers"
+              },
+              {
+                "file": "routes/dashboard/transactions.tsx",
+                "path": "transactions"
+              },
+              {
+                "file": "routes/dashboard/loans.tsx",
+                "path": "loans"
+              },
+              {
+                "file": "routes/dashboard/companies.tsx",
+                "path": "companies"
+              },
+              {
+                "file": "routes/dashboard/company.$companyId.tsx",
+                "path": "company/:companyId"
+              }
+            ]
+          }
+        ]
+      }
+    ]
   },
   "viteConfig": {
     "build": {

@@ -1,5 +1,4 @@
 import { getAuth } from "@clerk/react-router/ssr.server";
-import { fetchQuery } from "convex/nextjs";
 import { redirect, useLoaderData } from "react-router";
 import { AppSidebar } from "~/components/dashboard/app-sidebar";
 import { SiteHeader } from "~/components/dashboard/site-header";
@@ -37,17 +36,20 @@ export async function loader(args: Route.LoaderArgs) {
 }
 
 export default function DashboardLayout() {
-  const { user } = useLoaderData();
-  // @ts-ignore - moderation API will be available after Convex regenerates types
-  const currentPlayer = useQuery(api.moderation?.getCurrentPlayer);
+  const { user } = useLoaderData<typeof loader>();
+  const currentPlayer = useQuery(api.moderation.getCurrentPlayer);
   const [dismissedWarnings, setDismissedWarnings] = useState(false);
 
-  // Query for unread moderator messages
-  // @ts-ignore
-  const unreadMessages = useQuery(api.moderation?.getMyModeratorMessages);
-  // @ts-ignore
-  const markMessageAsRead = useMutation(api.moderation?.markMessageAsRead);
+  // Temporarily disabled until Convex functions are deployed
+  // Run: npx convex dev
+  const unreadMessages = undefined as any; // useQuery(api.moderation.getMyModeratorMessages);
+  const markMessageAsRead = undefined as any; // useMutation(api.moderation.markMessageAsRead);
   const [dismissedMessages, setDismissedMessages] = useState(false);
+
+  // Show loading state while queries are loading
+  if (currentPlayer === undefined) {
+    return null;
+  }
 
   // Show banned screen if player is banned
   if (currentPlayer?.role === "banned") {
@@ -68,7 +70,9 @@ export default function DashboardLayout() {
 
   const handleMarkMessageAsRead = async (messageId: Id<"moderatorMessages">) => {
     try {
-      await markMessageAsRead({ messageId });
+      if (markMessageAsRead) {
+        await markMessageAsRead({ messageId });
+      }
     } catch (error) {
       console.error("Error marking message as read:", error);
     }

@@ -12,63 +12,39 @@ export function meta({}: Route.MetaArgs) {
 }
 
 export default function Panel() {
-  // @ts-ignore - moderation API will be available after Convex regenerates types
-  const moderationAccess = useQuery(api.moderation?.checkModerationAccess);
-  // @ts-ignore
-  const players = useQuery(api.moderation?.getAllPlayersForModeration, {});
-  // @ts-ignore
-  const companies = useQuery(api.moderation?.getAllCompaniesForModeration);
-  // @ts-ignore
-  const cryptos = useQuery(api.moderation?.getAllCryptosForModeration);
-  // @ts-ignore
-  const products = useQuery(api.moderation?.getAllProductsForModeration);
+  const moderationAccess = useQuery(api.moderation.checkModerationAccess);
+  const players = useQuery(api.moderation.getAllPlayersForModeration, {});
+  const companies = useQuery(api.moderation.getAllCompaniesForModeration);
+  const cryptos = useQuery(api.moderation.getAllCryptosForModeration);
+  const products = useQuery(api.moderation.getAllProductsForModeration);
 
-  // @ts-ignore
-  const limitPlayer = useMutation(api.moderation?.limitPlayer);
-  // @ts-ignore
-  const unlimitPlayer = useMutation(api.moderation?.unlimitPlayer);
-  // @ts-ignore
-  const warnPlayer = useMutation(api.moderation?.warnPlayer);
-  // @ts-ignore
-  const clearWarnings = useMutation(api.moderation?.clearWarnings);
-  // @ts-ignore
-  const removeWarning = useMutation(api.moderation?.removeWarning);
-  // @ts-ignore
-  const banPlayer = useMutation(api.moderation?.banPlayer);
-  // @ts-ignore
-  const unbanPlayer = useMutation(api.moderation?.unbanPlayer);
-  // @ts-ignore
-  const assignModerator = useMutation(api.moderation?.assignModerator);
-  // @ts-ignore
-  const removeModerator = useMutation(api.moderation?.removeModerator);
-  // @ts-ignore
-  const deleteCompany = useMutation(api.moderation?.deleteCompanyAsMod);
-  // @ts-ignore
-  const deleteProduct = useMutation(api.moderation?.deleteProductAsMod);
-  // @ts-ignore
-  const bulkDeleteProducts = useMutation(api.moderation?.bulkDeleteProducts);
-  // @ts-ignore
-  const deleteCrypto = useMutation(api.moderation?.deleteCryptoAsMod);
-  // @ts-ignore
-  const setPlayerBalance = useMutation(api.moderation?.setPlayerBalance);
-  // @ts-ignore
-  const setCompanyBalance = useMutation(api.moderation?.setCompanyBalance);
-  // @ts-ignore
+  const limitPlayer = useMutation(api.moderation.limitPlayer);
+  const unlimitPlayer = useMutation(api.moderation.unlimitPlayer);
+  const warnPlayer = useMutation(api.moderation.warnPlayer);
+  const clearWarnings = useMutation(api.moderation.clearWarnings);
+  const removeWarning = useMutation(api.moderation.removeWarning);
+  const banPlayer = useMutation(api.moderation.banPlayer);
+  const unbanPlayer = useMutation(api.moderation.unbanPlayer);
+  const assignModerator = useMutation(api.moderation.assignModerator);
+  const removeModerator = useMutation(api.moderation.removeModerator);
+  const deleteCompany = useMutation(api.moderation.deleteCompanyAsMod);
+  const deleteProduct = useMutation(api.moderation.deleteProductAsMod);
+  const bulkDeleteProducts = useMutation(api.moderation.bulkDeleteProducts);
+  const deleteCrypto = useMutation(api.moderation.deleteCryptoAsMod);
+  const setPlayerBalance = useMutation(api.moderation.setPlayerBalance);
+  const setCompanyBalance = useMutation(api.moderation.setCompanyBalance);
   const permanentlyDeleteBannedPlayer = useMutation(
-    api.moderation?.permanentlyDeleteBannedPlayer
+    api.moderation.permanentlyDeleteBannedPlayer
   );
 
   // Mod messaging - now uses messages API with isMod flag
-  // @ts-ignore
+  // @ts-ignore - messages module exists but not yet in generated types
   const sendMessage = useMutation(api.messages?.sendMessage);
 
   // Alert mutations and queries
-  // @ts-ignore
-  const sendGlobalAlert = useMutation(api.alerts?.sendGlobalAlert);
-  // @ts-ignore
-  const getAllAlerts = useQuery(api.alerts?.getAllAlerts);
-  // @ts-ignore
-  const deleteAlert = useMutation(api.alerts?.deleteAlert);
+  const sendGlobalAlert = useMutation(api.alerts.sendGlobalAlert);
+  const getAllAlerts = useQuery(api.alerts.getAllAlerts);
+  const deleteAlert = useMutation(api.alerts.deleteAlert);
 
   // Crypto mutations
   const createCrypto = useMutation(api.crypto.createCryptocurrency);
@@ -123,8 +99,8 @@ export default function Panel() {
   const [isSendingMessage, setIsSendingMessage] = useState(false);
 
   // Search for users query (after state declaration)
-  // @ts-ignore
   const searchResults = useQuery(
+    // @ts-ignore - messages module exists but not yet in generated types
     api.messages?.searchPlayers,
     messageSearchQuery.length > 1 ? { searchQuery: messageSearchQuery } : "skip"
   );

@@ -146,9 +146,8 @@ export function AppSidebar({
   variant: "sidebar" | "floating" | "inset";
   user: any;
 }) {
-  // @ts-ignore - moderation API will be available after Convex regenerates types
-  const moderationAccess = useQuery(api.moderation?.checkModerationAccess);
-  // @ts-ignore - messages API will be available after Convex regenerates types
+  const moderationAccess = useQuery(api.moderation.checkModerationAccess);
+  // @ts-ignore - messages module exists but not yet in generated types
   const unreadCount = useQuery(api.messages?.getUnreadCount);
 
   // Add moderation panel link if user is mod or admin

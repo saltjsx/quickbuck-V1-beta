@@ -10,10 +10,8 @@ import type { Id } from "convex/_generated/dataModel";
  * Auto-marks alerts as read when dismissed
  */
 export function GlobalAlertBanner() {
-  // @ts-ignore - alerts API will be available after Convex regenerates types
-  const unreadAlerts = useQuery(api.alerts?.getUnreadAlerts);
-  // @ts-ignore
-  const markAsRead = useMutation(api.alerts?.markAlertAsRead);
+  const unreadAlerts = useQuery(api.alerts.getUnreadAlerts);
+  const markAsRead = useMutation(api.alerts.markAlertAsRead);
 
   const [currentAlertIndex, setCurrentAlertIndex] = useState(0);
   const [displayedAlerts, setDisplayedAlerts] = useState<any[]>([]);

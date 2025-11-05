@@ -56,24 +56,24 @@ export default function MessagesPage() {
   };
 
   // Queries
-  // @ts-ignore
+  // @ts-ignore - messages module exists but not yet in generated types
   const inbox = useQuery(api.messages?.getInbox);
-  // @ts-ignore
+  // @ts-ignore - messages module exists but not yet in generated types
   const sentMessages = useQuery(api.messages?.getSentMessages);
-  // @ts-ignore
+  // @ts-ignore - messages module exists but not yet in generated types
   const unreadCount = useQuery(api.messages?.getUnreadCount);
 
   // Mutations
-  // @ts-ignore
+  // @ts-ignore - messages module exists but not yet in generated types
   const sendMessage = useMutation(api.messages?.sendMessage);
-  // @ts-ignore
+  // @ts-ignore - messages module exists but not yet in generated types
   const markAsRead = useMutation(api.messages?.markAsRead);
-  // @ts-ignore
+  // @ts-ignore - messages module exists but not yet in generated types
   const deleteMessage = useMutation(api.messages?.deleteMessage);
 
   // Search query for finding players
   const [searchQuery, setSearchQuery] = useState("");
-  // @ts-ignore
+  // @ts-ignore - messages module exists but not yet in generated types
   const searchResults = useQuery(
     api.messages?.searchPlayers,
     searchQuery.length > 1 ? { searchQuery } : "skip"

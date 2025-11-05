@@ -143,15 +143,27 @@ function AppContent({ loaderData }: Route.ComponentProps) {
 }
 
 export default Sentry.withErrorBoundary(AppContent, {
-  fallback: (
-    <main className="pt-16 p-4 container mx-auto">
-      <h1>Application Error</h1>
-      <p>
-        We're sorry, but something went wrong. Our team has been notified and
-        will investigate.
-      </p>
-    </main>
-  ),
+  fallback: ({ error }) => {
+    const err = error as Error;
+    return (
+      <main className="pt-16 p-4 container mx-auto">
+        <h1>Application Error</h1>
+        <p>
+          We're sorry, but something went wrong. Our team has been notified and
+          will investigate.
+        </p>
+        {import.meta.env.DEV && err && (
+          <pre className="mt-4 p-4 bg-gray-100 dark:bg-gray-800 rounded overflow-auto text-sm">
+            <code>
+              {err.message}
+              {'\n\n'}
+              {err.stack}
+            </code>
+          </pre>
+        )}
+      </main>
+    );
+  },
 });
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
