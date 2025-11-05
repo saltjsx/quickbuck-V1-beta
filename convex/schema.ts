@@ -566,4 +566,17 @@ export default defineSchema({
     .index("by_senderId", ["senderId"])
     .index("by_recipient_read", ["recipientId", "isRead"])
     .index("by_sentAt", ["sentAt"]),
+
+  // Player tags (admin-only feature)
+  playerTags: defineTable({
+    playerId: v.id("players"),
+    tagText: v.string(), // Text shown in the tag box
+    tagColor: v.string(), // Color of text in the tag box (e.g., "#FF0000")
+    usernameColor: v.optional(v.string()), // Custom username text color (e.g., "#00FF00")
+    createdByAdminId: v.id("players"), // Admin who created/edited this tag
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_playerId", ["playerId"])
+    .index("by_createdByAdminId", ["createdByAdminId"]),
 });

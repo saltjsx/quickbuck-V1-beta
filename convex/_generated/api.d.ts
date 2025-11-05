@@ -26,6 +26,7 @@ import type * as maintenance from "../maintenance.js";
 import type * as messages from "../messages.js";
 import type * as migrations from "../migrations.js";
 import type * as moderation from "../moderation.js";
+import type * as playerTags from "../playerTags.js";
 import type * as players from "../players.js";
 import type * as portfolio from "../portfolio.js";
 import type * as products from "../products.js";
@@ -70,6 +71,7 @@ declare const fullApi: ApiFromModules<{
   messages: typeof messages;
   migrations: typeof migrations;
   moderation: typeof moderation;
+  playerTags: typeof playerTags;
   players: typeof players;
   portfolio: typeof portfolio;
   products: typeof products;

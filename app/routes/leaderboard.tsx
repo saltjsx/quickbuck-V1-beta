@@ -19,6 +19,7 @@ import { Skeleton } from "~/components/ui/skeleton";
 import { formatCurrency, formatCompactCurrency } from "~/lib/game-utils";
 import { UserAvatar } from "~/components/ui/user-avatar";
 import { CompanyLogo } from "~/components/ui/company-logo";
+import { PlayerNameWithTag } from "~/components/ui/player-name-with-tag";
 import { Search, TrendingUp, TrendingDown, ArrowUpDown } from "lucide-react";
 import { getAuth } from "@clerk/react-router/ssr.server";
 import { redirect } from "react-router";
@@ -409,9 +410,11 @@ export default function LeaderboardPage() {
                                 alt={player.userName}
                                 size="sm"
                               />
-                              <span className="text-sm font-medium">
-                                {player.userName}
-                              </span>
+                              <PlayerNameWithTag
+                                playerId={player._id}
+                                playerName={player.userName}
+                                className="text-sm"
+                              />
                             </div>
                             <span className="text-sm font-semibold text-green-600">
                               <AnimatedNumber
@@ -474,9 +477,11 @@ export default function LeaderboardPage() {
                                 alt={player.userName}
                                 size="sm"
                               />
-                              <span className="text-sm font-medium">
-                                {player.userName}
-                              </span>
+                              <PlayerNameWithTag
+                                playerId={player._id}
+                                playerName={player.userName}
+                                className="text-sm"
+                              />
                             </div>
                             <span className="text-sm font-semibold text-blue-600">
                               <AnimatedNumber
@@ -723,7 +728,10 @@ export default function LeaderboardPage() {
                                 alt={player.userName}
                                 size="sm"
                               />
-                              {player.userName}
+                              <PlayerNameWithTag
+                                playerId={player._id}
+                                playerName={player.userName}
+                              />
                             </div>
                           </TableCell>
                           <TableCell className="text-right font-medium text-green-600">
