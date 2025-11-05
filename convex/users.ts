@@ -51,6 +51,13 @@ export const upsertUser = mutation({
       .unique();
 
     if (existingUser) {
+      // REQUIRE NAME: Validate that user has a name
+      if (!identity.name || identity.name.trim() === "") {
+        throw new Error(
+          "Account name is required. Please complete your profile setup in Clerk."
+        );
+      }
+
       // Update if needed - always update image to ensure it's current
       const updatedFields: Parameters<typeof ctx.db.patch>[1] = {
         name: identity.name,
@@ -84,6 +91,13 @@ export const upsertUser = mutation({
           "An account with this email already exists. Please use a different email or sign in with your existing account."
         );
       }
+    }
+
+    // REQUIRE NAME: Validate that user has a name
+    if (!identity.name || identity.name.trim() === "") {
+      throw new Error(
+        "Account name is required. Please complete your profile setup in Clerk."
+      );
     }
 
     // Create new user

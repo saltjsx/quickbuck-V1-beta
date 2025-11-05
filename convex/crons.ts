@@ -17,6 +17,12 @@ crons.interval(
   internal.moderation.checkAndReportNegativeBalances
 );
 
+crons.interval(
+  "cleanup inactive items",
+  { hours: 24 }, // Run once per day
+  internal.cleanup.cleanupInactiveItems
+);
+
 console.log("[CRONS] ✅ Cron jobs registered successfully");
 
 export default crons;
