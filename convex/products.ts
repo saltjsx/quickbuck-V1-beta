@@ -33,18 +33,6 @@ export const createProduct = mutation({
       );
     }
 
-    // HARD LIMIT: Check if company has reached max products (30)
-    const companyProducts = await ctx.db
-      .query("products")
-      .withIndex("by_companyId", (q) => q.eq("companyId", args.companyId))
-      .collect();
-
-    if (companyProducts.length >= 30) {
-      throw new Error(
-        "Your company has reached the maximum limit of 30 products. Delete an existing product to create a new one."
-      );
-    }
-
     // CONTENT FILTER: Validate product name, description, and tags
     const validatedName = validateName(args.name, "Product name");
     const validatedDescription = validateDescription(
@@ -549,7 +537,7 @@ export const getAllProducts = query({
     offset: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const limit = args.limit || 1000; // Default 1000 - no hard limit
+    const limit = args.limit || 100000; // Default 100000 - virtually unlimited
     const offset = args.offset || 0;
 
     // Fetch all active products
@@ -585,7 +573,7 @@ export const getInStockProducts = query({
     offset: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const limit = args.limit || 1000; // Default 1000 - no hard limit
+    const limit = args.limit || 100000; // Default 100000 - virtually unlimited
     const offset = args.offset || 0;
 
     // Fetch all active products
@@ -676,7 +664,7 @@ export const getProductBatchOrders = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const limit = Math.min(args.limit || 20, 50); // Default 20, max 50
+    const limit = args.limit || 100; // Default 100, no hard cap
 
     // Use compound index for efficient filtering
     const transactions = await ctx.db

@@ -146,9 +146,9 @@ export const getAllPlayersSorted = query({
     offset: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const { sortBy = "netWorth", limit = 50, offset = 0 } = args;
-    // Limit to max 100 to prevent excessive bandwidth
-    const safeLimit = Math.min(limit, 100);
+    const { sortBy = "netWorth", limit = 100000, offset = 0 } = args;
+    // No hard cap - allow unlimited listings
+    const safeLimit = limit;
 
     let players;
 
@@ -203,8 +203,8 @@ export const getAllCompaniesSorted = query({
     offset: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const { sortBy = "marketCap", limit = 50, offset = 0 } = args;
-    const safeLimit = Math.min(limit, 100); // Max 100 per query
+    const { sortBy = "marketCap", limit = 100000, offset = 0 } = args;
+    const safeLimit = limit; // No hard cap - allow unlimited listings
 
     // Use index for efficient sorting
     let companies;
@@ -257,7 +257,7 @@ export const getAllProductsSorted = query({
     offset: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const { limit = 1000, offset = 0 } = args;
+    const { limit = 100000, offset = 0 } = args;
 
     // Use index for efficient sorting by totalRevenue
     const products = await ctx.db

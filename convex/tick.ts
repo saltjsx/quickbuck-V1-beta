@@ -104,7 +104,7 @@ async function executeBotPurchases(ctx: any, totalBudget: number) {
     totalPrice: number;
   }> = [];
 
-  // Get active products - limit to reduce bandwidth
+  // Get active products
   // Use index and order by totalRevenue to prioritize popular products
   const products = await ctx.db
     .query("products")
@@ -116,7 +116,7 @@ async function executeBotPurchases(ctx: any, totalBudget: number) {
         q.lte(q.field("price"), 5000000) // Skip products over $50k
       )
     )
-    .take(100); // Limit to top 100 products to reduce bandwidth
+    .collect(); // Get all active products
 
   if (products.length === 0) {
     console.log("No active products found");

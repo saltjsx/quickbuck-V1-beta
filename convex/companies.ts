@@ -21,14 +21,14 @@ export const createCompany = mutation({
       throw new Error("Your account does not have permission to create companies");
     }
 
-    // HARD LIMIT: Check if player has reached max companies (3)
+    // HARD LIMIT: Check if player has reached max companies (5)
     const playerCompanies = await ctx.db
       .query("companies")
       .withIndex("by_ownerId", (q) => q.eq("ownerId", args.ownerId))
       .collect();
     
-    if (playerCompanies.length >= 3) {
-      throw new Error("You have reached the maximum limit of 3 companies. Delete an existing company to create a new one.");
+    if (playerCompanies.length >= 5) {
+      throw new Error("You have reached the maximum limit of 5 companies. Delete an existing company to create a new one.");
     }
 
     // CONTENT FILTER: Validate company name and description
