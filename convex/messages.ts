@@ -106,7 +106,22 @@ export const getInbox = query({
       .order("desc")
       .collect();
 
-    return messages;
+    // Enrich messages with sender player tags
+    const enrichedMessages = await Promise.all(
+      messages.map(async (message) => {
+        const senderTag = await ctx.db
+          .query("playerTags")
+          .withIndex("by_playerId", (q) => q.eq("playerId", message.senderId))
+          .unique();
+
+        return {
+          ...message,
+          senderTag: senderTag || null,
+        };
+      })
+    );
+
+    return enrichedMessages;
   },
 });
 
@@ -139,7 +154,26 @@ export const getSentMessages = query({
       .order("desc")
       .collect();
 
-    return messages;
+    // Enrich messages with recipient info and tags
+    const enrichedMessages = await Promise.all(
+      messages.map(async (message) => {
+        const recipient = await ctx.db.get(message.recipientId);
+        const recipientUser = recipient ? await ctx.db.get(recipient.userId) : null;
+        
+        const recipientTag = await ctx.db
+          .query("playerTags")
+          .withIndex("by_playerId", (q) => q.eq("playerId", message.recipientId))
+          .unique();
+
+        return {
+          ...message,
+          recipientName: recipientUser?.name || "Unknown",
+          recipientTag: recipientTag || null,
+        };
+      })
+    );
+
+    return enrichedMessages;
   },
 });
 
@@ -294,10 +328,17 @@ export const searchPlayers = query({
         // Don't show banned players
         if (player.role === "banned") return null;
 
+        // Get player tag
+        const playerTag = await ctx.db
+          .query("playerTags")
+          .withIndex("by_playerId", (q) => q.eq("playerId", player._id))
+          .unique();
+
         return {
           playerId: player._id,
           playerName: user.name || "Anonymous",
           role: player.role,
+          playerTag: playerTag || null,
         };
       })
     );

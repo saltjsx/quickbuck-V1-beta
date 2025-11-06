@@ -8,6 +8,7 @@ import { Textarea } from "~/components/ui/textarea";
 import { Badge } from "~/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { Skeleton } from "~/components/ui/skeleton";
+import { PlayerNameWithTag } from "~/components/ui/player-name-with-tag";
 import {
   Inbox,
   Send,
@@ -241,9 +242,31 @@ export default function MessagesPage() {
                                   ) : (
                                     <Mail className="h-4 w-4 text-primary" />
                                   )}
-                                  <span className="text-sm">
-                                    {message.senderName}
-                                  </span>
+                                  {message.senderTag ? (
+                                    <span className="inline-flex items-center gap-2">
+                                      <span
+                                        style={{
+                                          color: message.senderTag.usernameColor || "inherit",
+                                        }}
+                                        className="text-sm font-medium"
+                                      >
+                                        {message.senderName}
+                                      </span>
+                                      <span
+                                        style={{
+                                          color: message.senderTag.tagColor,
+                                          borderColor: message.senderTag.tagColor,
+                                        }}
+                                        className="px-2 py-0.5 rounded border text-xs font-medium"
+                                      >
+                                        {message.senderTag.tagText}
+                                      </span>
+                                    </span>
+                                  ) : (
+                                    <span className="text-sm">
+                                      {message.senderName}
+                                    </span>
+                                  )}
                                   {message.isMod && (
                                     <Badge
                                       variant="secondary"
@@ -298,9 +321,32 @@ export default function MessagesPage() {
                               <div className="flex items-start justify-between mb-1">
                                 <div className="flex items-center gap-2">
                                   <Send className="h-4 w-4 text-muted-foreground" />
-                                  <span className="text-sm">
-                                    To: {message.senderName}
-                                  </span>
+                                  <span className="text-sm">To: </span>
+                                  {message.recipientTag ? (
+                                    <span className="inline-flex items-center gap-2">
+                                      <span
+                                        style={{
+                                          color: message.recipientTag.usernameColor || "inherit",
+                                        }}
+                                        className="text-sm font-medium"
+                                      >
+                                        {message.recipientName}
+                                      </span>
+                                      <span
+                                        style={{
+                                          color: message.recipientTag.tagColor,
+                                          borderColor: message.recipientTag.tagColor,
+                                        }}
+                                        className="px-2 py-0.5 rounded border text-xs font-medium"
+                                      >
+                                        {message.recipientTag.tagText}
+                                      </span>
+                                    </span>
+                                  ) : (
+                                    <span className="text-sm">
+                                      {message.recipientName}
+                                    </span>
+                                  )}
                                 </div>
                                 <span className="text-xs text-muted-foreground">
                                   {formatDate(message.sentAt)}
@@ -370,9 +416,33 @@ export default function MessagesPage() {
                                         className="w-full text-left p-3 hover:bg-accent transition-colors"
                                       >
                                         <div className="flex items-center justify-between">
-                                          <span className="text-sm">
-                                            {player.playerName}
-                                          </span>
+                                          <div className="flex items-center gap-2">
+                                            {player.playerTag ? (
+                                              <span className="inline-flex items-center gap-2">
+                                                <span
+                                                  style={{
+                                                    color: player.playerTag.usernameColor || "inherit",
+                                                  }}
+                                                  className="text-sm font-medium"
+                                                >
+                                                  {player.playerName}
+                                                </span>
+                                                <span
+                                                  style={{
+                                                    color: player.playerTag.tagColor,
+                                                    borderColor: player.playerTag.tagColor,
+                                                  }}
+                                                  className="px-2 py-0.5 rounded border text-xs font-medium"
+                                                >
+                                                  {player.playerTag.tagText}
+                                                </span>
+                                              </span>
+                                            ) : (
+                                              <span className="text-sm">
+                                                {player.playerName}
+                                              </span>
+                                            )}
+                                          </div>
                                           <Badge
                                             variant="outline"
                                             className="text-xs"
@@ -441,7 +511,55 @@ export default function MessagesPage() {
                             <span className="font-semibold">
                               {activeTab === "inbox" ? "From:" : "To:"}
                             </span>
-                            <span>{selectedMessage.senderName}</span>
+                            {activeTab === "inbox" ? (
+                              selectedMessage.senderTag ? (
+                                <span className="inline-flex items-center gap-2">
+                                  <span
+                                    style={{
+                                      color: selectedMessage.senderTag.usernameColor || "inherit",
+                                    }}
+                                    className="font-medium"
+                                  >
+                                    {selectedMessage.senderName}
+                                  </span>
+                                  <span
+                                    style={{
+                                      color: selectedMessage.senderTag.tagColor,
+                                      borderColor: selectedMessage.senderTag.tagColor,
+                                    }}
+                                    className="px-2 py-0.5 rounded border text-xs font-medium"
+                                  >
+                                    {selectedMessage.senderTag.tagText}
+                                  </span>
+                                </span>
+                              ) : (
+                                <span>{selectedMessage.senderName}</span>
+                              )
+                            ) : (
+                              selectedMessage.recipientTag ? (
+                                <span className="inline-flex items-center gap-2">
+                                  <span
+                                    style={{
+                                      color: selectedMessage.recipientTag.usernameColor || "inherit",
+                                    }}
+                                    className="font-medium"
+                                  >
+                                    {selectedMessage.recipientName}
+                                  </span>
+                                  <span
+                                    style={{
+                                      color: selectedMessage.recipientTag.tagColor,
+                                      borderColor: selectedMessage.recipientTag.tagColor,
+                                    }}
+                                    className="px-2 py-0.5 rounded border text-xs font-medium"
+                                  >
+                                    {selectedMessage.recipientTag.tagText}
+                                  </span>
+                                </span>
+                              ) : (
+                                <span>{selectedMessage.recipientName}</span>
+                              )
+                            )}
                             {selectedMessage.isMod && (
                               <Badge variant="secondary">
                                 <ShieldCheck className="h-3 w-3 mr-1" />
