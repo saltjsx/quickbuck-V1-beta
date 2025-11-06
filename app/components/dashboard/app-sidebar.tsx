@@ -33,7 +33,7 @@ import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { useState } from "react";
 import { Button } from "~/components/ui/button";
-import { PlayerTagsManager } from "../admin/player-tags-manager";
+import { BadgeManager } from "../admin/badge-manager";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "~/components/ui/tooltip";
 
 const sidebarGroups = [
@@ -151,7 +151,7 @@ export function AppSidebar({
   variant: "sidebar" | "floating" | "inset";
   user: any;
 }) {
-  const [showTagsManager, setShowTagsManager] = useState(false);
+  const [showBadgeManager, setShowBadgeManager] = useState(false);
   const moderationAccess = useQuery(api.moderation.checkModerationAccess);
   // @ts-ignore - messages module exists but not yet in generated types
   const unreadCount = useQuery(api.messages?.getUnreadCount);
@@ -222,14 +222,14 @@ export function AppSidebar({
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => setShowTagsManager(true)}
+                      onClick={() => setShowBadgeManager(true)}
                       className="h-9 w-9"
                     >
                       <Tags className="h-4 w-4" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Manage Player Tags</p>
+                    <p>Manage Badges</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -240,9 +240,9 @@ export function AppSidebar({
       </SidebarFooter>
       
       {isAdmin && (
-        <PlayerTagsManager
-          open={showTagsManager}
-          onOpenChange={setShowTagsManager}
+        <BadgeManager
+          open={showBadgeManager}
+          onOpenChange={setShowBadgeManager}
         />
       )}
     </Sidebar>

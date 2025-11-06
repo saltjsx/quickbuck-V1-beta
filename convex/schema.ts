@@ -567,16 +567,24 @@ export default defineSchema({
     .index("by_recipient_read", ["recipientId", "isRead"])
     .index("by_sentAt", ["sentAt"]),
 
-  // Player tags (admin-only feature)
-  playerTags: defineTable({
-    playerId: v.id("players"),
-    tagText: v.string(), // Text shown in the tag box
-    tagColor: v.string(), // Color of text in the tag box (e.g., "#FF0000")
-    usernameColor: v.optional(v.string()), // Custom username text color (e.g., "#00FF00")
-    createdByAdminId: v.id("players"), // Admin who created/edited this tag
+  // Badges (admin-only feature)
+  badges: defineTable({
+    name: v.string(), // Badge display name
+    description: v.string(), // Description shown on hover
+    icon: v.string(), // SVG/HTML tag for the icon
+    createdByAdminId: v.id("players"), // Admin who created this badge
     createdAt: v.number(),
     updatedAt: v.number(),
+  }).index("by_name", ["name"]),
+
+  // Player badges (junction table for player-badge relationships)
+  playerBadges: defineTable({
+    playerId: v.id("players"),
+    badgeId: v.id("badges"),
+    assignedByAdminId: v.id("players"), // Admin who assigned this badge
+    assignedAt: v.number(),
   })
     .index("by_playerId", ["playerId"])
-    .index("by_createdByAdminId", ["createdByAdminId"]),
+    .index("by_badgeId", ["badgeId"])
+    .index("by_player_badge", ["playerId", "badgeId"]),
 });
