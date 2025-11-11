@@ -31,16 +31,26 @@ export function CountdownTimer({
       const now = Date.now();
       const timeSinceLastTick = now - lastTickTime;
 
-      // If time since last tick is negative, return full interval
+      // If time since last tick is negative (clock skew), return full interval
       if (timeSinceLastTick < 0) {
         setTimeRemaining(TICK_INTERVAL_MS);
         return;
       }
 
-      // Calculate time until next tick
+      // If we've exceeded the tick interval, the tick should have run but hasn't yet
+      // Show the time past due, cycling back through the interval
+      if (timeSinceLastTick >= TICK_INTERVAL_MS) {
+        // Calculate how far we are into the current cycle
+        const timeIntoCycle = timeSinceLastTick % TICK_INTERVAL_MS;
+        const timeUntilNextTick = TICK_INTERVAL_MS - timeIntoCycle;
+        setTimeRemaining(timeUntilNextTick);
+        return;
+      }
+
+      // Calculate time until next tick (normal case)
       const timeUntilNextTick = TICK_INTERVAL_MS - timeSinceLastTick;
 
-      // Never show negative time, and show actual countdown
+      // Never show negative time
       setTimeRemaining(Math.max(timeUntilNextTick, 0));
     };
 
