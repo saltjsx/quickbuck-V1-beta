@@ -1,7 +1,7 @@
 import { Button } from "~/components/ui/button";
 import { Separator } from "~/components/ui/separator";
 import { SidebarTrigger } from "~/components/ui/sidebar";
-import { Github, BookOpen } from "lucide-react";
+import { Github, BookOpen, Newspaper } from "lucide-react";
 import DiscordIcon from "~/components/icons/discord-icon";
 import { useQuery } from "convex/react";
 import { api } from "convex/_generated/api";
@@ -35,6 +35,23 @@ export function SiteHeader() {
               <BookOpen className="h-5 w-5" />
               RULES
             </Link>
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="icon"
+            asChild
+            title="News"
+            aria-label="News"
+          >
+            <a
+              href="https://news.quickbuck.xyz"
+              rel="noopener noreferrer"
+              target="_blank"
+              className="flex items-center"
+            >
+              <Newspaper className="h-5 w-5" />
+            </a>
           </Button>
 
           <Button
