@@ -257,6 +257,14 @@ export default defineSchema({
     .index("by_timestamp", ["timestamp"])
     .index("by_tickNumber", ["tickNumber"]),
 
+  // Tick execution lock - prevents concurrent tick execution
+  tickLock: defineTable({
+    lockId: v.string(), // Always "singleton"
+    isLocked: v.boolean(),
+    lockedAt: v.optional(v.number()),
+    lockedBy: v.optional(v.string()),
+  }).index("by_lockId", ["lockId"]),
+
   // Upgrades system
   upgrades: defineTable({
     playerId: v.id("players"),

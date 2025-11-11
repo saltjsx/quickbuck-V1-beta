@@ -7,6 +7,8 @@
  * 3. Update cryptocurrency prices
  * 4. Apply loan interest
  * 5. Record tick history
+ * 
+ * CRITICAL: Uses a distributed lock to prevent concurrent execution
  */
 
 import { v } from "convex/values";
@@ -14,72 +16,146 @@ import { mutation, internalMutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 
-// Shared tick execution logic
-async function executeTickLogic(ctx: any) {
-  const now = Date.now();
-
-  // Get last tick number
-  const lastTick = await ctx.db
-    .query("tickHistory")
-    .withIndex("by_tickNumber")
-    .order("desc")
+// Acquire distributed lock for tick execution
+async function acquireTickLock(ctx: any, lockSource: string): Promise<boolean> {
+  const lock = await ctx.db
+    .query("tickLock")
+    .withIndex("by_lockId", (q: any) => q.eq("lockId", "singleton"))
     .first();
 
-  const tickNumber = (lastTick?.tickNumber || 0) + 1;
+  const now = Date.now();
+  
+  if (!lock) {
+    // Create the lock for the first time
+    await ctx.db.insert("tickLock", {
+      lockId: "singleton",
+      isLocked: true,
+      lockedAt: now,
+      lockedBy: lockSource,
+    });
+    return true;
+  }
 
-  console.log(`Executing tick #${tickNumber}`);
+  // Check if lock is stale (older than 10 minutes - should never happen)
+  if (lock.isLocked && lock.lockedAt && (now - lock.lockedAt) > 10 * 60 * 1000) {
+    console.log(`[TICK] Stale lock detected, forcing release`);
+    await ctx.db.patch(lock._id, {
+      isLocked: true,
+      lockedAt: now,
+      lockedBy: lockSource,
+    });
+    return true;
+  }
 
-  // Hardcode bot budget to avoid extra query (was 10000000 = $100k)
-  const botBudget = 50000000; // $500,000 in cents
+  // If already locked, cannot acquire
+  if (lock.isLocked) {
+    console.log(`[TICK] Lock already held by ${lock.lockedBy}, skipping`);
+    return false;
+  }
 
-  // Step 1: Bot purchases from marketplace
-  const botPurchases = await executeBotPurchases(ctx, botBudget);
-
-  // Step 1.5: Deduct employee costs from company income
-  await deductEmployeeCosts(ctx);
-
-  // Step 2: Update stock prices
-  const stockPriceUpdates: any = await ctx.runMutation(
-    internal.stocks.updateStockPrices
-  );
-
-  // Step 3: Update cryptocurrency prices
-  const cryptoPriceUpdates: any = await ctx.runMutation(
-    internal.crypto.updateCryptoPrices
-  );
-
-  // Step 4: Apply loan interest
-  await applyLoanInterest(ctx);
-
-  // Step 5: Update player net worth values for efficient querying
-  await updatePlayerNetWorth(ctx);
-
-  // Step 6: Record tick history
-  const tickId = await ctx.db.insert("tickHistory", {
-    tickNumber,
-    timestamp: now,
-    botPurchases,
-    cryptoPriceUpdates,
-    totalBudgetSpent: botPurchases.reduce((sum, p) => sum + p.totalPrice, 0),
+  // Acquire the lock
+  await ctx.db.patch(lock._id, {
+    isLocked: true,
+    lockedAt: now,
+    lockedBy: lockSource,
   });
+  return true;
+}
 
-  console.log(`Tick #${tickNumber} completed`);
+// Release distributed lock
+async function releaseTickLock(ctx: any) {
+  const lock = await ctx.db
+    .query("tickLock")
+    .withIndex("by_lockId", (q: any) => q.eq("lockId", "singleton"))
+    .first();
 
-  return {
-    tickNumber,
-    tickId,
-    botPurchases: botPurchases.length,
-    stockUpdates: stockPriceUpdates?.updated || 0,
-    cryptoUpdates: cryptoPriceUpdates?.length || 0,
-  };
+  if (lock) {
+    await ctx.db.patch(lock._id, {
+      isLocked: false,
+      lockedAt: undefined,
+      lockedBy: undefined,
+    });
+  }
+}
+
+// Shared tick execution logic
+async function executeTickLogic(ctx: any, lockSource: string) {
+  const now = Date.now();
+
+  // Try to acquire lock
+  const lockAcquired = await acquireTickLock(ctx, lockSource);
+  if (!lockAcquired) {
+    console.log(`[TICK] Could not acquire lock, another tick is running`);
+    throw new Error("Another tick is currently running. Please wait.");
+  }
+
+  try {
+    // Get last tick number
+    const lastTick = await ctx.db
+      .query("tickHistory")
+      .withIndex("by_tickNumber")
+      .order("desc")
+      .first();
+
+    const tickNumber = (lastTick?.tickNumber || 0) + 1;
+
+    console.log(`Executing tick #${tickNumber}`);
+
+    // Hardcode bot budget to avoid extra query (was 10000000 = $100k)
+    const botBudget = 50000000; // $500,000 in cents
+
+    // Step 1: Bot purchases from marketplace
+    const botPurchases = await executeBotPurchases(ctx, botBudget);
+
+    // Step 1.5: Deduct employee costs from company income
+    await deductEmployeeCosts(ctx);
+
+    // Step 2: Update stock prices
+    const stockPriceUpdates: any = await ctx.runMutation(
+      internal.stocks.updateStockPrices
+    );
+
+    // Step 3: Update cryptocurrency prices
+    const cryptoPriceUpdates: any = await ctx.runMutation(
+      internal.crypto.updateCryptoPrices
+    );
+
+    // Step 4: Apply loan interest
+    await applyLoanInterest(ctx);
+
+    // Step 5: Update player net worth values for efficient querying
+    await updatePlayerNetWorth(ctx);
+
+    // Step 6: Record tick history
+    const tickId = await ctx.db.insert("tickHistory", {
+      tickNumber,
+      timestamp: now,
+      botPurchases,
+      cryptoPriceUpdates,
+      totalBudgetSpent: botPurchases.reduce((sum, p) => sum + p.totalPrice, 0),
+    });
+
+    console.log(`Tick #${tickNumber} completed`);
+
+    return {
+      tickNumber,
+      tickId,
+      botPurchases: botPurchases.length,
+      stockUpdates: stockPriceUpdates?.updated || 0,
+      cryptoUpdates: cryptoPriceUpdates?.length || 0,
+    };
+  } finally {
+    // Always release the lock, even if an error occurred
+    await releaseTickLock(ctx);
+  }
 }
 
 // Main tick mutation - runs every 5 minutes via cron
 export const executeTick = internalMutation({
   handler: async (ctx) => {
-    console.log("[TICK] Executing tick...");
+    console.log("[TICK] Executing tick via CRON...");
     try {
-      const result = await executeTickLogic(ctx);
+      const result = await executeTickLogic(ctx, "cron");
       console.log("[TICK] ✅ Tick completed successfully", result);
       return result;
     } catch (error) {
@@ -92,7 +168,8 @@ export const executeTick = internalMutation({
 // Manual trigger for testing (can be called from admin dashboard)
 export const manualTick = mutation({
   handler: async (ctx) => {
-    return await executeTickLogic(ctx);
+    console.log("[TICK] Manual tick triggered");
+    return await executeTickLogic(ctx, "manual");
   },
 });
 
