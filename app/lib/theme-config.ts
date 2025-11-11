@@ -1,6 +1,6 @@
 export type ThemeMode = "light" | "dark";
 
-export type ThemePreset = "default" | "light-cloud" | "dark-default" | "dark-crimson";
+export type ThemePreset = "default" | "light-cloud" | "dark-default" | "dark-crimson" | "dark-delta" | "light-bubblegum";
 
 export interface ThemeColors {
   primary: string;
@@ -191,6 +191,78 @@ const darkCrimsonColors: ThemeColors = {
   sidebarRing: "oklch(0.55 0.22 25)",
 };
 
+// Delta theme (dark mode only)
+const deltaColors: ThemeColors = {
+  primary: "oklch(0.5967 0.2396 19.9561)",
+  primaryForeground: "oklch(1.0000 0 0)",
+  background: "oklch(0.1976 0.0527 271.1013)",
+  foreground: "oklch(1.0000 0 0)",
+  card: "oklch(0.2704 0.0563 266.9444)",
+  cardForeground: "oklch(1.0000 0 0)",
+  popover: "oklch(0.1976 0.0527 271.1013)",
+  popoverForeground: "oklch(1.0000 0 0)",
+  secondary: "oklch(0.3939 0.0763 263.1659)",
+  secondaryForeground: "oklch(1.0000 0 0)",
+  muted: "oklch(0.2704 0.0563 266.9444)",
+  mutedForeground: "oklch(0.8144 0.0148 254.6221)",
+  accent: "oklch(0.3939 0.0763 263.1659)",
+  accentForeground: "oklch(1.0000 0 0)",
+  destructive: "oklch(0.5967 0.2396 19.9561)",
+  destructiveForeground: "oklch(1.0000 0 0)",
+  border: "oklch(0.3939 0.0763 263.1659)",
+  input: "oklch(0.2704 0.0563 266.9444)",
+  ring: "oklch(0.5967 0.2396 19.9561)",
+  chart1: "oklch(0.5967 0.2396 19.9561)",
+  chart2: "oklch(0.5854 0.2041 277.1173)",
+  chart3: "oklch(0.6231 0.1880 259.8145)",
+  chart4: "oklch(0.7686 0.1647 70.0804)",
+  chart5: "oklch(0.6959 0.1491 162.4796)",
+  sidebar: "oklch(0.1976 0.0527 271.1013)",
+  sidebarForeground: "oklch(1.0000 0 0)",
+  sidebarPrimary: "oklch(0.5967 0.2396 19.9561)",
+  sidebarPrimaryForeground: "oklch(1.0000 0 0)",
+  sidebarAccent: "oklch(0.3939 0.0763 263.1659)",
+  sidebarAccentForeground: "oklch(1.0000 0 0)",
+  sidebarBorder: "oklch(0.2704 0.0563 266.9444)",
+  sidebarRing: "oklch(0.5967 0.2396 19.9561)",
+};
+
+// Bubblegum theme (light mode only)
+const bubblegumColors: ThemeColors = {
+  primary: "oklch(0.5316 0.1409 355.1999)",
+  primaryForeground: "oklch(1.0000 0 0)",
+  background: "oklch(0.9754 0.0084 325.6414)",
+  foreground: "oklch(0.3257 0.1161 325.0372)",
+  card: "oklch(0.9754 0.0084 325.6414)",
+  cardForeground: "oklch(0.3257 0.1161 325.0372)",
+  popover: "oklch(1.0000 0 0)",
+  popoverForeground: "oklch(0.3257 0.1161 325.0372)",
+  secondary: "oklch(0.8696 0.0675 334.8991)",
+  secondaryForeground: "oklch(0.4448 0.1341 324.7991)",
+  muted: "oklch(0.9395 0.0260 331.5454)",
+  mutedForeground: "oklch(0.4924 0.1244 324.4523)",
+  accent: "oklch(0.8696 0.0675 334.8991)",
+  accentForeground: "oklch(0.4448 0.1341 324.7991)",
+  destructive: "oklch(0.5248 0.1368 20.8317)",
+  destructiveForeground: "oklch(1.0000 0 0)",
+  border: "oklch(0.8568 0.0829 328.9110)",
+  input: "oklch(0.8517 0.0558 336.6002)",
+  ring: "oklch(0.5916 0.2180 0.5844)",
+  chart1: "oklch(0.6038 0.2363 344.4657)",
+  chart2: "oklch(0.4445 0.2251 300.6246)",
+  chart3: "oklch(0.3790 0.0438 226.1538)",
+  chart4: "oklch(0.8330 0.1185 88.3461)",
+  chart5: "oklch(0.7843 0.1256 58.9964)",
+  sidebar: "oklch(0.9360 0.0288 320.5788)",
+  sidebarForeground: "oklch(0.4948 0.1909 354.5435)",
+  sidebarPrimary: "oklch(0.3963 0.0251 285.1962)",
+  sidebarPrimaryForeground: "oklch(0.9668 0.0124 337.5228)",
+  sidebarAccent: "oklch(0.9789 0.0013 106.4235)",
+  sidebarAccentForeground: "oklch(0.3963 0.0251 285.1962)",
+  sidebarBorder: "oklch(0.9383 0.0026 48.7178)",
+  sidebarRing: "oklch(0.5916 0.2180 0.5844)",
+};
+
 export const themes: Theme[] = [
   {
     id: "default",
@@ -216,6 +288,18 @@ export const themes: Theme[] = [
     mode: "dark",
     colors: darkCrimsonColors,
   },
+  {
+    id: "dark-delta",
+    name: "Delta",
+    mode: "dark",
+    colors: deltaColors,
+  },
+  {
+    id: "light-bubblegum",
+    name: "Bubblegum",
+    mode: "light",
+    colors: bubblegumColors,
+  },
 ];
 
 export const getThemeById = (id: ThemePreset): Theme | undefined => {
@@ -224,20 +308,50 @@ export const getThemeById = (id: ThemePreset): Theme | undefined => {
 
 export const applyThemeColors = (colors: ThemeColors, mode: ThemeMode) => {
   const root = document.documentElement;
-  
-  // Apply colors
+
+  // First, remove all existing theme-related CSS variables to prevent persistence
+  const existingStyles = root.style;
+  const propertiesToRemove: string[] = [];
+
+  for (let i = 0; i < existingStyles.length; i++) {
+    const prop = existingStyles[i];
+    // Remove all theme-related CSS variables
+    if (prop.startsWith('--') && (
+      prop.includes('primary') ||
+      prop.includes('secondary') ||
+      prop.includes('background') ||
+      prop.includes('foreground') ||
+      prop.includes('card') ||
+      prop.includes('popover') ||
+      prop.includes('muted') ||
+      prop.includes('accent') ||
+      prop.includes('destructive') ||
+      prop.includes('border') ||
+      prop.includes('input') ||
+      prop.includes('ring') ||
+      prop.includes('chart') ||
+      prop.includes('sidebar')
+    )) {
+      propertiesToRemove.push(prop);
+    }
+  }
+
+  // Remove the collected properties
+  propertiesToRemove.forEach(prop => root.style.removeProperty(prop));
+
+  // Apply new colors
   Object.entries(colors).forEach(([key, value]) => {
     // Convert camelCase to kebab-case for CSS variables
     let cssVar = key.replace(/([A-Z])/g, "-$1").toLowerCase();
-    
+
     // Handle special cases for chart colors (chart1 -> chart-1)
     if (key.startsWith("chart")) {
       cssVar = cssVar.replace("chart", "chart-");
     }
-    
+
     root.style.setProperty(`--${cssVar}`, value);
   });
-  
+
   // Apply dark mode class
   root.classList.toggle("dark", mode === "dark");
 };
