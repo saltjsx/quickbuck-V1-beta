@@ -1200,13 +1200,19 @@ export const getStockPriceHistory = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const limit = args.limit || 100;
-    
-    return await ctx.db
+    // If no limit is specified, fetch all history
+    // Otherwise use the provided limit for backward compatibility
+    const query = ctx.db
       .query("stockPriceHistory")
       .withIndex("by_stock_time", (q) => q.eq("stockId", args.stockId))
-      .order("desc")
-      .take(limit);
+      .order("desc");
+
+    if (args.limit !== undefined) {
+      return await query.take(args.limit);
+    }
+
+    // Collect all results when no limit is specified
+    return await query.collect();
   },
 });
 

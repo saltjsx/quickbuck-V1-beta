@@ -16,12 +16,12 @@ export interface PriceHistoryPoint {
 /**
  * Hook to fetch real stock price history from the database
  * @param stockId - The ID of the stock to fetch history for
- * @param limit - Maximum number of price points to fetch (default 100)
+ * @param limit - Maximum number of price points to fetch (optional - fetches all if not provided)
  * @returns Array of price history points or undefined if loading
  */
 export function useStockPriceHistory(
   stockId: Id<"stocks"> | null | undefined,
-  limit: number = 100
+  limit?: number
 ) {
   const rawHistory = useQuery(
     api.stocks.getStockPriceHistory,

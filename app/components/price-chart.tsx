@@ -28,8 +28,8 @@ export function PriceChart({
 }: PriceChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
 
-  // Fetch real price history from database
-  const realHistory = useStockPriceHistory(stockId, 100);
+  // Fetch real price history from database (fetches all history)
+  const realHistory = useStockPriceHistory(stockId);
 
   // Use real data if available, otherwise fall back to generated data
   let data;
