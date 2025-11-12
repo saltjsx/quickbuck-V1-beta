@@ -478,7 +478,7 @@ describe("Content Filter - Edge Cases", () => {
       return await ctx.db.get(companyId);
     });
     
-    expect(company?.description).toBeUndefined();
+    expect((company as any)?.description).toBeUndefined();
   });
 
   test("should enforce length limits", async () => {
@@ -591,8 +591,8 @@ describe("Content Filter - Edge Cases", () => {
       return await ctx.db.get(companyId);
     });
 
-    expect(company?.name).toBe("Test Company");
-    expect(company?.description).toBe("A great company");
+    expect((company as any)?.name).toBe("Test Company");
+    expect((company as any)?.description).toBe("A great company");
   });
 });
 

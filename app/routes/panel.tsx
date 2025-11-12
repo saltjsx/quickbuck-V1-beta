@@ -690,13 +690,7 @@ export default function Panel() {
                   {players.map((player) => (
                     <tr key={player._id}>
                       <td>
-                        <span 
-                          className="player-name-link"
-                          onClick={() => handleViewPlayerDetails(player._id, player.userName)}
-                          title="Click to view player's companies and products"
-                        >
-                          {player.userName}
-                        </span>
+                        {player.userName}
                       </td>
                       <td>{player.userEmail}</td>
                       <td>
@@ -2228,22 +2222,7 @@ export default function Panel() {
           text-decoration: underline;
         }
 
-        /* Player name link */
-        .player-name-link {
-          color: #0000ff;
-          text-decoration: underline;
-          cursor: pointer;
-          font-weight: bold;
-        }
 
-        .player-name-link:hover {
-          color: #ff00ff;
-          background: rgba(0, 0, 255, 0.1);
-        }
-
-        .player-name-link:active {
-          color: #800080;
-        }
 
         /* Player details modal */
         .player-details-box {

@@ -94,7 +94,13 @@ async function releaseTickLock(ctx: any) {
 }
 
 // Shared tick execution logic
-async function executeTickLogic(ctx: any, lockSource: string) {
+async function executeTickLogic(ctx: any, lockSource: string): Promise<{
+  tickNumber: number;
+  tickId: Id<"tickHistory">;
+  botPurchases: number;
+  stockUpdates: number;
+  cryptoUpdates: number;
+}> {
   const now = Date.now();
 
   // Try to acquire lock
@@ -121,7 +127,12 @@ async function executeTickLogic(ctx: any, lockSource: string) {
 
     // Step 1: Bot purchases from marketplace (isolated mutation)
     console.log('[TICK] Step 1: Bot purchases...');
-    const botPurchases = await ctx.runMutation(
+    const botPurchases: Array<{
+      productId: any;
+      companyId: any;
+      quantity: number;
+      totalPrice: number;
+    }> = await ctx.runMutation(
       internal.tick.executeBotPurchasesMutation,
       { totalBudget: botBudget }
     );
@@ -151,7 +162,7 @@ async function executeTickLogic(ctx: any, lockSource: string) {
     await ctx.runMutation(internal.tick.updatePlayerNetWorthMutation);
 
     // Step 6: Record tick history
-    const tickId = await ctx.db.insert("tickHistory", {
+    const tickId: Id<"tickHistory"> = await ctx.db.insert("tickHistory", {
       tickNumber,
       timestamp: now,
       botPurchases: botPurchases || [],
@@ -178,7 +189,13 @@ async function executeTickLogic(ctx: any, lockSource: string) {
 
 // Main tick mutation - runs every 5 minutes via cron
 export const executeTick = internalMutation({
-  handler: async (ctx) => {
+  handler: async (ctx): Promise<{
+    tickNumber: number;
+    tickId: Id<"tickHistory">;
+    botPurchases: number;
+    stockUpdates: number;
+    cryptoUpdates: number;
+  }> => {
     console.log("[TICK] Executing tick via CRON...");
     try {
       const result = await executeTickLogic(ctx, "cron");
@@ -193,7 +210,13 @@ export const executeTick = internalMutation({
 
 // Manual trigger for testing (can be called from admin dashboard)
 export const manualTick = mutation({
-  handler: async (ctx) => {
+  handler: async (ctx): Promise<{
+    tickNumber: number;
+    tickId: Id<"tickHistory">;
+    botPurchases: number;
+    stockUpdates: number;
+    cryptoUpdates: number;
+  }> => {
     console.log("[TICK] Manual tick triggered");
     return await executeTickLogic(ctx, "manual");
   },
