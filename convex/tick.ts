@@ -145,17 +145,39 @@ async function executeTickLogic(ctx: any, lockSource: string): Promise<{
     // Hardcode bot budget to avoid extra query (was 10000000 = $100k)
     const botBudget = 50000000; // $500,000 in cents
 
-    // Step 1: Bot purchases from marketplace (isolated mutation)
-    console.log('[TICK] Step 1: Bot purchases...');
+    // Step 1: Bot purchases from marketplace (chunked into multiple mutations)
+    console.log('[TICK] Step 1: Bot purchases (chunked)...');
     const botPurchases: Array<{
       productId: any;
       companyId: any;
       quantity: number;
       totalPrice: number;
-    }> = await ctx.runMutation(
-      internal.tick.executeBotPurchasesMutation,
-      { totalBudget: botBudget }
-    );
+    }> = [];
+    
+    const purchasesPerChunk = 10;
+    const totalChunks = 3;
+    const budgetPerChunk = Math.floor(botBudget / totalChunks);
+    
+    for (let i = 0; i < totalChunks; i++) {
+      try {
+        console.log(`[TICK] Bot purchases chunk ${i + 1}/${totalChunks}...`);
+        const chunkPurchases = await ctx.runMutation(
+          internal.tick.executeBotPurchasesMutation,
+          { 
+            totalBudget: budgetPerChunk,
+            maxPurchases: purchasesPerChunk,
+          }
+        );
+        
+        if (Array.isArray(chunkPurchases)) {
+          botPurchases.push(...chunkPurchases);
+        }
+        console.log(`[TICK] Chunk ${i + 1} completed: ${chunkPurchases?.length || 0} purchases`);
+      } catch (error) {
+        console.error(`[TICK] Error in bot purchases chunk ${i + 1}:`, error);
+        // Continue with other chunks even if one fails
+      }
+    }
 
     // Step 1.5: Deduct employee costs from company income (isolated mutation)
     console.log('[TICK] Step 1.5: Employee costs...');
@@ -309,7 +331,7 @@ export const manualTick = mutation({
  * - Price limits (skip products over $50k)
  * - Safe database operations with error handling
  */
-async function executeBotPurchases(ctx: any, totalBudget: number) {
+async function executeBotPurchases(ctx: any, totalBudget: number, maxPurchases?: number) {
   console.log(`[BOT] Starting purchase cycle with budget: $${(totalBudget / 100).toFixed(2)}`);
 
   const purchases: Array<{
@@ -320,7 +342,7 @@ async function executeBotPurchases(ctx: any, totalBudget: number) {
   }> = [];
 
   try {
-    // Step 1: Fetch active products (limit to 100 for read optimization)
+    // Step 1: Fetch active products (limit to 50 for better performance)
     const products = await ctx.db
       .query("products")
       .withIndex("by_isActive_totalRevenue", (q: any) => q.eq("isActive", true))
@@ -331,7 +353,7 @@ async function executeBotPurchases(ctx: any, totalBudget: number) {
           q.lte(q.field("price"), 5000000) // Max price: $50,000
         )
       )
-      .take(100);
+      .take(50);
 
     if (!products || products.length === 0) {
       console.log("[BOT] No active products found");
@@ -416,12 +438,22 @@ async function executeBotPurchases(ctx: any, totalBudget: number) {
     // Step 5: Allocate budget and make purchases
     let remainingBudget = totalBudget;
     let purchaseCount = 0;
+    const MAX_PURCHASES_PER_TICK = maxPurchases || 25; // Limit purchases to avoid transaction overload
 
     for (const { product, score } of scoredProducts) {
       if (remainingBudget <= 0) {
         console.log("[BOT] Budget exhausted");
         break;
       }
+
+      if (purchaseCount >= MAX_PURCHASES_PER_TICK) {
+        console.log(`[BOT] Reached max purchases limit (${MAX_PURCHASES_PER_TICK})`);
+        break;
+      }
+
+      // Initialize variables for error logging
+      let quantity = 0;
+      let finalPrice = 0;
 
       try {
         // Calculate this product's budget allocation
@@ -433,7 +465,7 @@ async function executeBotPurchases(ctx: any, totalBudget: number) {
         }
 
         // Calculate desired quantity
-        let quantity = Math.floor(budgetAllocation / product.price);
+        quantity = Math.floor(budgetAllocation / product.price);
 
         // Apply stock constraint
         if (product.stock !== undefined && product.stock !== null && product.stock > 0) {
@@ -461,7 +493,7 @@ async function executeBotPurchases(ctx: any, totalBudget: number) {
           }
         }
 
-        const finalPrice = quantity * product.price;
+        finalPrice = quantity * product.price;
 
         // Validate final calculations
         if (!isFinite(finalPrice) || finalPrice <= 0 || !isFinite(quantity) || quantity <= 0) {
@@ -469,7 +501,14 @@ async function executeBotPurchases(ctx: any, totalBudget: number) {
           continue;
         }
 
-        // Step 6: Execute purchase - update product
+        // Step 6: Verify company exists first (before any writes)
+        const company = await ctx.db.get(product.companyId);
+        if (!company) {
+          console.warn(`[BOT] Company not found for product ${product._id}, skipping`);
+          continue;
+        }
+
+        // Step 7: Execute purchase - update product
         const updateData: any = {
           totalSold: (product.totalSold || 0) + quantity,
           totalRevenue: (product.totalRevenue || 0) + finalPrice,
@@ -482,19 +521,13 @@ async function executeBotPurchases(ctx: any, totalBudget: number) {
 
         await ctx.db.patch(product._id, updateData);
 
-        // Step 7: Credit company
-        const company = await ctx.db.get(product.companyId);
-        if (company) {
-          await ctx.db.patch(product.companyId, {
-            balance: company.balance + finalPrice,
-            updatedAt: Date.now(),
-          });
-        } else {
-          console.warn(`[BOT] Company not found for product ${product._id}`);
-          continue;
-        }
+        // Step 8: Credit company
+        await ctx.db.patch(product.companyId, {
+          balance: company.balance + finalPrice,
+          updatedAt: Date.now(),
+        });
 
-        // Step 8: Record sale
+        // Step 9: Record sale
         await ctx.db.insert("marketplaceSales", {
           productId: product._id,
           companyId: product.companyId,
@@ -505,7 +538,7 @@ async function executeBotPurchases(ctx: any, totalBudget: number) {
           createdAt: Date.now(),
         });
 
-        // Step 9: Track purchase
+        // Step 10: Track purchase
         purchases.push({
           productId: product._id,
           companyId: product.companyId,
@@ -521,6 +554,13 @@ async function executeBotPurchases(ctx: any, totalBudget: number) {
         );
       } catch (error) {
         console.error(`[BOT] Error purchasing product ${product._id}:`, error);
+        console.error(`[BOT] Error details:`, {
+          message: error instanceof Error ? error.message : String(error),
+          productId: product._id,
+          productName: product.name,
+          quantity,
+          finalPrice,
+        });
         // Continue to next product on error
         continue;
       }
@@ -813,9 +853,12 @@ async function applyLoanInterest(
 // ============================================================================
 
 export const executeBotPurchasesMutation = internalMutation({
-  args: { totalBudget: v.number() },
+  args: { 
+    totalBudget: v.number(),
+    maxPurchases: v.optional(v.number()),
+  },
   handler: async (ctx, args) => {
-    return await executeBotPurchases(ctx, args.totalBudget);
+    return await executeBotPurchases(ctx, args.totalBudget, args.maxPurchases);
   },
 });
 
