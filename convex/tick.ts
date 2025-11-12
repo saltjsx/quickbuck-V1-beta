@@ -199,9 +199,27 @@ export const manualTick = mutation({
   },
 });
 
-// Bot purchase logic based on AUTO_PRODUCT_ALGO.md
+/**
+ * BOT PURCHASE SYSTEM - COMPLETELY REWRITTEN
+ * 
+ * The bot simulates market demand by purchasing products based on:
+ * 1. Quality rating (40% weight) - Higher quality = more attractive
+ * 2. Price preference (30% weight) - Medium prices preferred (~$1000 sweet spot)
+ * 3. Demand score (20% weight) - Products with more sales are more attractive
+ * 4. Base attractiveness (10% weight) - Ensures all products get some consideration
+ * 
+ * Budget allocation is proportional to attractiveness scores.
+ * Expensive items receive a penalty to prevent budget concentration.
+ * 
+ * Traits preserved:
+ * - Attractiveness scoring algorithm
+ * - Budget allocation proportional to scores
+ * - Stock and maxPerOrder constraints
+ * - Price limits (skip products over $50k)
+ * - Safe database operations with error handling
+ */
 async function executeBotPurchases(ctx: any, totalBudget: number) {
-  console.log(`Bot purchasing with budget: $${totalBudget / 100}`);
+  console.log(`[BOT] Starting purchase cycle with budget: $${(totalBudget / 100).toFixed(2)}`);
 
   const purchases: Array<{
     productId: any;
@@ -210,164 +228,223 @@ async function executeBotPurchases(ctx: any, totalBudget: number) {
     totalPrice: number;
   }> = [];
 
-  // Get active products
-  // Use index and order by totalRevenue to prioritize popular products
-  // OPTIMIZED: Limit to top 100 products to avoid read explosion
-  const products = await ctx.db
-    .query("products")
-    .withIndex("by_isActive_totalRevenue", (q: any) => q.eq("isActive", true))
-    .order("desc")
-    .filter((q: any) =>
-      q.and(
-        q.eq(q.field("isArchived"), false),
-        q.lte(q.field("price"), 5000000) // Skip products over $50k
+  try {
+    // Step 1: Fetch active products (limit to 100 for read optimization)
+    const products = await ctx.db
+      .query("products")
+      .withIndex("by_isActive_totalRevenue", (q: any) => q.eq("isActive", true))
+      .order("desc")
+      .filter((q: any) =>
+        q.and(
+          q.eq(q.field("isArchived"), false),
+          q.lte(q.field("price"), 5000000) // Max price: $50,000
+        )
       )
-    )
-    .take(100); // Limit to top 100 products by revenue
+      .take(100);
 
-  if (products.length === 0) {
-    console.log("No active products found");
-    return purchases;
-  }
+    if (!products || products.length === 0) {
+      console.log("[BOT] No active products found");
+      return purchases;
+    }
 
-  // Filter out invalid products (already filtered by price in query)
-  const eligibleProducts = products.filter((p: any) => {
-    return (
-      p.price > 0 && (p.stock === undefined || p.stock === null || p.stock > 0)
+    console.log(`[BOT] Found ${products.length} active products`);
+
+    // Step 2: Filter eligible products (must have valid price and available stock)
+    const eligibleProducts = products.filter((p: any) => {
+      const hasValidPrice = p.price && p.price > 0 && isFinite(p.price);
+      const hasStock = p.stock === undefined || p.stock === null || p.stock > 0;
+      return hasValidPrice && hasStock;
+    });
+
+    if (eligibleProducts.length === 0) {
+      console.log("[BOT] No eligible products after filtering");
+      return purchases;
+    }
+
+    console.log(`[BOT] ${eligibleProducts.length} eligible products`);
+
+    // Step 3: Calculate attractiveness scores for each product
+    const scoredProducts = eligibleProducts
+      .map((product: any) => {
+        try {
+          // Quality rating (0-1 scale)
+          const quality = Math.max(0, Math.min(1, product.qualityRating || 0.5));
+
+          // Price preference using log-normal distribution
+          // Favors medium-priced items around $1000 sweet spot
+          const priceInCents = product.price;
+          const priceInDollars = priceInCents / 100;
+          const logPrice = Math.log(Math.max(1, priceInCents));
+          const avgLogPrice = Math.log(100000); // $1000 in cents
+          const priceZ = (logPrice - avgLogPrice) / 2;
+          const pricePreference = Math.exp(-(priceZ ** 2) / 2);
+
+          // Unit price penalty (prevents budget concentration on expensive items)
+          const unitPricePenalty = 1 / (1 + Math.pow(priceInDollars / 5000, 1.2));
+
+          // Demand score based on historical sales
+          const totalSold = product.totalSold || 0;
+          const demandScore = Math.min(totalSold / 100, 1);
+
+          // Combined attractiveness score (weighted average + penalty)
+          const rawScore =
+            (0.4 * quality + 0.3 * pricePreference + 0.2 * demandScore + 0.1) *
+            unitPricePenalty;
+
+          const finalScore = Math.max(0, Math.min(1, rawScore));
+
+          return {
+            product,
+            score: finalScore,
+          };
+        } catch (error) {
+          console.error(`[BOT] Error scoring product ${product._id}:`, error);
+          return { product, score: 0 };
+        }
+      })
+      .filter((item: any) => item.score > 0); // Remove products with 0 score
+
+    if (scoredProducts.length === 0) {
+      console.log("[BOT] No products with positive scores");
+      return purchases;
+    }
+
+    // Step 4: Calculate total score for budget allocation
+    const totalScore = scoredProducts.reduce(
+      (sum: number, item: any) => sum + item.score,
+      0
     );
-  });
 
-  if (eligibleProducts.length === 0) {
-    console.log("No eligible products");
+    if (totalScore <= 0 || !isFinite(totalScore)) {
+      console.log("[BOT] Invalid total score");
+      return purchases;
+    }
+
+    console.log(`[BOT] Total attractiveness score: ${totalScore.toFixed(4)}`);
+
+    // Step 5: Allocate budget and make purchases
+    let remainingBudget = totalBudget;
+    let purchaseCount = 0;
+
+    for (const { product, score } of scoredProducts) {
+      if (remainingBudget <= 0) {
+        console.log("[BOT] Budget exhausted");
+        break;
+      }
+
+      try {
+        // Calculate this product's budget allocation
+        const budgetAllocation = Math.floor((score / totalScore) * totalBudget);
+
+        // Skip if allocation is too small to buy even one unit
+        if (budgetAllocation < product.price) {
+          continue;
+        }
+
+        // Calculate desired quantity
+        let quantity = Math.floor(budgetAllocation / product.price);
+
+        // Apply stock constraint
+        if (product.stock !== undefined && product.stock !== null && product.stock > 0) {
+          quantity = Math.min(quantity, product.stock);
+        }
+
+        // Apply maxPerOrder constraint
+        if (product.maxPerOrder && product.maxPerOrder > 0) {
+          quantity = Math.min(quantity, product.maxPerOrder);
+        }
+
+        // Skip if no quantity available
+        if (quantity <= 0) {
+          continue;
+        }
+
+        // Calculate actual purchase price
+        const purchasePrice = quantity * product.price;
+
+        // Adjust for remaining budget
+        if (purchasePrice > remainingBudget) {
+          quantity = Math.floor(remainingBudget / product.price);
+          if (quantity <= 0) {
+            continue;
+          }
+        }
+
+        const finalPrice = quantity * product.price;
+
+        // Validate final calculations
+        if (!isFinite(finalPrice) || finalPrice <= 0 || !isFinite(quantity) || quantity <= 0) {
+          console.error(`[BOT] Invalid calculation for product ${product._id}`);
+          continue;
+        }
+
+        // Step 6: Execute purchase - update product
+        const updateData: any = {
+          totalSold: (product.totalSold || 0) + quantity,
+          totalRevenue: (product.totalRevenue || 0) + finalPrice,
+          updatedAt: Date.now(),
+        };
+
+        if (product.stock !== undefined && product.stock !== null) {
+          updateData.stock = product.stock - quantity;
+        }
+
+        await ctx.db.patch(product._id, updateData);
+
+        // Step 7: Credit company
+        const company = await ctx.db.get(product.companyId);
+        if (company) {
+          await ctx.db.patch(product.companyId, {
+            balance: company.balance + finalPrice,
+            updatedAt: Date.now(),
+          });
+        } else {
+          console.warn(`[BOT] Company not found for product ${product._id}`);
+          continue;
+        }
+
+        // Step 8: Record sale
+        await ctx.db.insert("marketplaceSales", {
+          productId: product._id,
+          companyId: product.companyId,
+          quantity,
+          purchaserId: "bot" as const,
+          purchaserType: "bot" as const,
+          totalPrice: finalPrice,
+          createdAt: Date.now(),
+        });
+
+        // Step 9: Track purchase
+        purchases.push({
+          productId: product._id,
+          companyId: product.companyId,
+          quantity,
+          totalPrice: finalPrice,
+        });
+
+        remainingBudget -= finalPrice;
+        purchaseCount++;
+
+        console.log(
+          `[BOT] Purchase #${purchaseCount}: ${quantity}x ${product.name} for $${(finalPrice / 100).toFixed(2)}`
+        );
+      } catch (error) {
+        console.error(`[BOT] Error purchasing product ${product._id}:`, error);
+        // Continue to next product on error
+        continue;
+      }
+    }
+
+    const totalSpent = totalBudget - remainingBudget;
+    console.log(
+      `[BOT] Purchase cycle complete: ${purchases.length} purchases, $${(totalSpent / 100).toFixed(2)} spent`
+    );
+
     return purchases;
+  } catch (error) {
+    console.error("[BOT] Fatal error in executeBotPurchases:", error);
+    return purchases; // Return what we have so far
   }
-
-  // Calculate attractiveness scores
-  const scoredProducts = eligibleProducts.map((product: any) => {
-    // Quality rating (0-1)
-    const q = product.qualityRating || 0.5;
-
-    // Price preference (favor medium prices)
-    const priceInDollars = product.price / 100;
-    const logPrice = Math.log(product.price + 1);
-    const avgLogPrice = Math.log(100000); // ~$1000 sweet spot
-    const priceZ = (logPrice - avgLogPrice) / 2;
-    const pricePreferenceScore = Math.exp(-(priceZ ** 2) / 2);
-
-    // Unit price penalty (reduce allocation for expensive items)
-    const unitPricePenalty = 1 / (1 + Math.pow(priceInDollars / 5000, 1.2));
-
-    // Demand score (based on recent sales)
-    const demandScore = Math.min((product.totalSold || 0) / 100, 1);
-
-    // Combined score
-    const rawAttractiveness =
-      (0.4 * q + 0.3 * pricePreferenceScore + 0.2 * demandScore + 0.1) *
-      unitPricePenalty;
-
-    return {
-      product,
-      score: Math.max(0, Math.min(1, rawAttractiveness)),
-    };
-  });
-
-  // Calculate total score
-  const totalScore = scoredProducts.reduce(
-    (sum: number, p: any) => sum + p.score,
-    0
-  );
-
-  if (totalScore === 0) {
-    console.log("Total score is zero");
-    return purchases;
-  }
-
-  let remainingBudget = totalBudget;
-
-  // Allocate budget proportionally
-  for (const { product, score } of scoredProducts) {
-    if (remainingBudget <= 0) break;
-
-    // Calculate desired spend
-    const desiredSpend = Math.floor((score / totalScore) * totalBudget);
-
-    if (desiredSpend < product.price) continue;
-
-    // Calculate quantity
-    let quantity = Math.floor(desiredSpend / product.price);
-
-    // Apply stock constraints
-    if (product.stock !== undefined && product.stock !== null) {
-      quantity = Math.min(quantity, product.stock);
-    }
-
-    // Apply max per order
-    if (product.maxPerOrder) {
-      quantity = Math.min(quantity, product.maxPerOrder);
-    }
-
-    if (quantity <= 0) continue;
-
-    const totalPrice = quantity * product.price;
-
-    if (totalPrice > remainingBudget) {
-      quantity = Math.floor(remainingBudget / product.price);
-      if (quantity <= 0) continue;
-    }
-
-    const actualPrice = quantity * product.price;
-
-    // Update product stock
-    if (product.stock !== undefined && product.stock !== null) {
-      await ctx.db.patch(product._id, {
-        stock: product.stock - quantity,
-        totalSold: product.totalSold + quantity,
-        totalRevenue: product.totalRevenue + actualPrice,
-        updatedAt: Date.now(),
-      });
-    } else {
-      await ctx.db.patch(product._id, {
-        totalSold: product.totalSold + quantity,
-        totalRevenue: product.totalRevenue + actualPrice,
-        updatedAt: Date.now(),
-      });
-    }
-
-    // Credit company
-    const company = await ctx.db.get(product.companyId);
-    if (company) {
-      await ctx.db.patch(product.companyId, {
-        balance: company.balance + actualPrice,
-        updatedAt: Date.now(),
-      });
-    }
-
-    // Record sale
-    await ctx.db.insert("marketplaceSales", {
-      productId: product._id,
-      companyId: product.companyId,
-      quantity,
-      purchaserId: "bot" as const,
-      purchaserType: "bot" as const,
-      totalPrice: actualPrice,
-      createdAt: Date.now(),
-    });
-
-    // Note: We don't create a transaction for bot purchases since "bot" is not a valid account ID
-    // Bot purchases are system events, not player-to-company transfers
-
-    purchases.push({
-      productId: product._id,
-      companyId: product.companyId,
-      quantity,
-      totalPrice: actualPrice,
-    });
-
-    remainingBudget -= actualPrice;
-  }
-
-  console.log(`Bot made ${purchases.length} purchases`);
-  return purchases;
 }
 
 // Stock market functionality has been removed
