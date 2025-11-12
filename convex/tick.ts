@@ -603,27 +603,29 @@ async function executeBotPurchasesAllCompanies(ctx: any, companiesLimit: number 
   const MIN_SPEND_PER_COMPANY = 3000000; // $30,000 in cents
   
   try {
-    // Fetch all companies first, then slice based on offset
+    // Fetch ALL companies (no limit) and slice based on offset
     const allCompanies = await ctx.db
       .query("companies")
-      .order("asc")
-      .take(100); // Fetch up to 100 companies total
+      .collect(); // Get ALL companies
     
-    // Apply offset and limit
+    console.log(`[BOT] Total companies in database: ${allCompanies.length}`);
+    
+    // Apply offset and limit to get the specific batch
     const companies = allCompanies.slice(offset, offset + companiesLimit);
     
     if (!companies || companies.length === 0) {
-      console.log("[BOT] No companies found");
+      console.log(`[BOT] No companies found at offset ${offset}`);
       return allPurchases;
     }
     
-    console.log(`[BOT] Processing ${companies.length} companies`);
+    console.log(`[BOT] Processing ${companies.length} companies (offset ${offset} to ${offset + companies.length - 1})`);
     
     let totalSpentAllCompanies = 0;
     let companiesProcessed = 0;
     
     for (const company of companies) {
       try {
+        console.log(`[BOT] Processing company: ${company.name} (ID: ${company._id})`);
         const result = await executeBotPurchasesForCompany(
           ctx,
           company._id,
@@ -634,8 +636,9 @@ async function executeBotPurchasesAllCompanies(ctx: any, companiesLimit: number 
         allPurchases.push(...result.purchases);
         totalSpentAllCompanies += result.totalSpent;
         companiesProcessed++;
+        console.log(`[BOT] Company ${company.name}: ${result.purchases.length} purchases, $${(result.totalSpent / 100).toFixed(2)} spent`);
       } catch (error) {
-        console.error(`[BOT] Error processing company ${company._id}:`, error);
+        console.error(`[BOT] Error processing company ${company.name} (${company._id}):`, error);
         // Continue with next company
       }
     }
