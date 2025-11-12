@@ -1,4 +1,4 @@
-# React Starter Kit
+# React Starter Kit (RSK)
 
 A modern, production-ready SaaS starter template for building full-stack React applications using React Router v7, Convex, and Clerk. Ready for Vercel deployment with built-in AI chat capabilities. (Billing / payments disabled in this fork.)
 
