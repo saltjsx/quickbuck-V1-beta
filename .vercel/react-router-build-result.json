@@ -19,6 +19,9 @@
       "routes/panel": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/rules": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/admin/maintenance": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/admin/diagnostics": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/admin/tick": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
+      "routes/admin/stocks": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/dashboard/index": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/leaderboard": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
       "routes/messages": "nodejs_eyJydW50aW1lIjoibm9kZWpzIn0",
@@ -123,6 +126,33 @@
         "parentId": "root",
         "file": "app/routes/admin/maintenance.tsx",
         "path": "admin/maintenance",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/admin/diagnostics": {
+        "id": "routes/admin/diagnostics",
+        "parentId": "root",
+        "file": "app/routes/admin/diagnostics.tsx",
+        "path": "admin/diagnostics",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/admin/tick": {
+        "id": "routes/admin/tick",
+        "parentId": "root",
+        "file": "app/routes/admin/tick.tsx",
+        "path": "admin/tick",
+        "config": {
+          "runtime": "nodejs"
+        }
+      },
+      "routes/admin/stocks": {
+        "id": "routes/admin/stocks",
+        "parentId": "root",
+        "file": "app/routes/admin/stocks.tsx",
+        "path": "admin/stocks",
         "config": {
           "runtime": "nodejs"
         }
@@ -307,9 +337,9 @@
     }
   },
   "reactRouterConfig": {
-    "appDirectory": "C:/Users/bugbr/Downloads/quickbuck-v1b-main/quickbuck-v1b-main/app",
+    "appDirectory": "/Users/abdul/Documents/quickbuck-V1-beta/app",
     "basename": "/",
-    "buildDirectory": "C:/Users/bugbr/Downloads/quickbuck-v1b-main/quickbuck-v1b-main/build",
+    "buildDirectory": "/Users/abdul/Documents/quickbuck-V1-beta/build",
     "future": {
       "v8_middleware": false,
       "unstable_optimizeDeps": false,
@@ -376,6 +406,24 @@
         "parentId": "root",
         "file": "routes/admin/maintenance.tsx",
         "path": "admin/maintenance"
+      },
+      "routes/admin/diagnostics": {
+        "id": "routes/admin/diagnostics",
+        "parentId": "root",
+        "file": "routes/admin/diagnostics.tsx",
+        "path": "admin/diagnostics"
+      },
+      "routes/admin/tick": {
+        "id": "routes/admin/tick",
+        "parentId": "root",
+        "file": "routes/admin/tick.tsx",
+        "path": "admin/tick"
+      },
+      "routes/admin/stocks": {
+        "id": "routes/admin/stocks",
+        "parentId": "root",
+        "file": "routes/admin/stocks.tsx",
+        "path": "admin/stocks"
       },
       "routes/dashboard/layout": {
         "id": "routes/dashboard/layout",
@@ -545,6 +593,18 @@
           {
             "file": "routes/admin/maintenance.tsx",
             "path": "admin/maintenance"
+          },
+          {
+            "file": "routes/admin/diagnostics.tsx",
+            "path": "admin/diagnostics"
+          },
+          {
+            "file": "routes/admin/tick.tsx",
+            "path": "admin/tick"
+          },
+          {
+            "file": "routes/admin/stocks.tsx",
+            "path": "admin/stocks"
           },
           {
             "file": "routes/dashboard/layout.tsx",
