@@ -143,7 +143,7 @@ async function executeTickLogic(ctx: any, lockSource: string): Promise<{
     console.log(`Executing tick #${tickNumber}`);
 
     // Step 1: Bot purchases from marketplace (per-company allocation)
-    console.log('[TICK] Step 1: Bot purchases (per-company batches)...');
+    console.log('[TICK] Step 1: Bot purchases (all companies)...');
     const botPurchases: Array<{
       productId: any;
       companyId: any;
@@ -151,31 +151,24 @@ async function executeTickLogic(ctx: any, lockSource: string): Promise<{
       totalPrice: number;
     }> = [];
     
-    // Process companies in batches to avoid overloading Convex
-    // Each company gets $50k budget (min $30k spend)
-    const companiesPerBatch = 5; // Process 5 companies per batch
-    const totalBatches = 4; // Process up to 20 companies total (4 batches * 5)
-    
-    for (let i = 0; i < totalBatches; i++) {
-      try {
-        const offset = i * companiesPerBatch;
-        console.log(`[TICK] Bot purchases batch ${i + 1}/${totalBatches} (companies ${offset}-${offset + companiesPerBatch - 1})...`);
-        const batchPurchases = await ctx.runMutation(
-          internal.tick.executeBotPurchasesMutation,
-          { 
-            companiesLimit: companiesPerBatch,
-            offset: offset,
-          }
-        );
-        
-        if (Array.isArray(batchPurchases)) {
-          botPurchases.push(...batchPurchases);
+    // Process ALL companies in one batch to ensure complete coverage
+    try {
+      console.log(`[TICK] Bot purchases: processing all companies...`);
+      const allPurchases = await ctx.runMutation(
+        internal.tick.executeBotPurchasesMutation,
+        { 
+          companiesLimit: 10000, // Process all companies (no practical limit)
+          offset: 0,
         }
-        console.log(`[TICK] Batch ${i + 1} completed: ${batchPurchases?.length || 0} purchases`);
-      } catch (error) {
-        console.error(`[TICK] Error in bot purchases batch ${i + 1}:`, error);
-        // Continue with other batches even if one fails
+      );
+      
+      if (Array.isArray(allPurchases)) {
+        botPurchases.push(...allPurchases);
       }
+      console.log(`[TICK] Bot purchases completed: ${allPurchases?.length || 0} total purchases`);
+    } catch (error) {
+      console.error(`[TICK] Error in bot purchases:`, error);
+      // Continue even if purchases fail
     }
 
     // Step 1.5: Deduct employee costs from company income (isolated mutation)
@@ -312,11 +305,12 @@ export const manualTick = mutation({
 });
 
 /**
- * BOT PURCHASE SYSTEM - PER-COMPANY BUDGET ALLOCATION
+ * BOT PURCHASE SYSTEM - RANDOM PER-COMPANY BUDGET ALLOCATION
  * 
  * The bot simulates market demand by purchasing products from each company:
- * - Each company gets a budget allocation of $50,000 (5,000,000 cents)
- * - Minimum spend per company: $30,000 (3,000,000 cents)
+ * - Total budget per tick: $2,500,000 minimum (can exceed if purchases continue)
+ * - Each company gets a RANDOM percentage allocation of the total budget
+ * - All companies are included in the allocation (no company left out)
  * - Buys based on attractiveness scoring within each company
  * 
  * Scoring factors:
@@ -327,6 +321,7 @@ export const manualTick = mutation({
  * 
  * Budget allocation is proportional to attractiveness scores.
  * Expensive items receive a penalty to prevent budget concentration.
+ * Max product price: $50,000 (products above this are ignored)
  */
 async function executeBotPurchasesForCompany(
   ctx: any,
@@ -344,112 +339,43 @@ async function executeBotPurchasesForCompany(
   }> = [];
 
   try {
-    // Step 1: Fetch active products for this specific company
+    // Step 1: Fetch ALL products for this company (no filters - purchase everything)
     const products = await ctx.db
       .query("products")
       .withIndex("by_companyId", (q: any) => q.eq("companyId", companyId))
-      .filter((q: any) =>
-        q.and(
-          q.eq(q.field("isActive"), true),
-          q.eq(q.field("isArchived"), false),
-          q.lte(q.field("price"), 5000000) // Max price: $50,000
-        )
-      )
-      .take(30); // Limit products per company to avoid overload
+      .collect(); // Get all products
 
     if (!products || products.length === 0) {
-      console.log(`[BOT] No active products found for company ${companyId}`);
+      console.log(`[BOT] No products found for company ${companyId}`);
       return { purchases, totalSpent: 0 };
     }
 
-    console.log(`[BOT] Found ${products.length} active products for company ${companyId}`);
+    console.log(`[BOT] Found ${products.length} total products for company ${companyId}`);
 
-    // Step 2: Filter eligible products (must have valid price and available stock)
-    const eligibleProducts = products.filter((p: any) => {
+    // Step 2: Filter by max price ($50,000) and valid price only
+    const validProducts = products.filter((p: any) => {
       const hasValidPrice = p.price && p.price > 0 && isFinite(p.price);
-      const hasStock = p.stock === undefined || p.stock === null || p.stock > 0;
-      return hasValidPrice && hasStock;
+      const withinMaxPrice = p.price <= 5000000; // Max $50,000
+      return hasValidPrice && withinMaxPrice;
     });
 
-    if (eligibleProducts.length === 0) {
-      console.log(`[BOT] No eligible products for company ${companyId} after filtering`);
+    if (validProducts.length === 0) {
+      console.log(`[BOT] No products with valid prices (within $50k max) for company ${companyId}`);
       return { purchases, totalSpent: 0 };
     }
 
-    console.log(`[BOT] ${eligibleProducts.length} eligible products for company ${companyId}`);
+    console.log(`[BOT] ${validProducts.length} products with valid prices for company ${companyId}`);
 
-    // Step 3: Calculate attractiveness scores for each product
-    const scoredProducts = eligibleProducts
-      .map((product: any) => {
-        try {
-          // Quality rating (0-1 scale)
-          const quality = Math.max(0, Math.min(1, product.qualityRating || 0.5));
+    // Step 3: Calculate budget allocation across products (equal split per product)
+    const budgetPerProduct = Math.floor(companyBudget / validProducts.length);
 
-          // Price preference using log-normal distribution
-          // Favors medium-priced items around $1000 sweet spot
-          const priceInCents = product.price;
-          const priceInDollars = priceInCents / 100;
-          const logPrice = Math.log(Math.max(1, priceInCents));
-          const avgLogPrice = Math.log(100000); // $1000 in cents
-          const priceZ = (logPrice - avgLogPrice) / 2;
-          const pricePreference = Math.exp(-(priceZ ** 2) / 2);
-
-          // Unit price penalty (prevents budget concentration on expensive items)
-          const unitPricePenalty = 1 / (1 + Math.pow(priceInDollars / 5000, 1.2));
-
-          // Demand score based on historical sales
-          const totalSold = product.totalSold || 0;
-          const demandScore = Math.min(totalSold / 100, 1);
-
-          // Combined attractiveness score (weighted average + penalty)
-          const rawScore =
-            (0.4 * quality + 0.3 * pricePreference + 0.2 * demandScore + 0.1) *
-            unitPricePenalty;
-
-          const finalScore = Math.max(0, Math.min(1, rawScore));
-
-          return {
-            product,
-            score: finalScore,
-          };
-        } catch (error) {
-          console.error(`[BOT] Error scoring product ${product._id}:`, error);
-          return { product, score: 0 };
-        }
-      })
-      .filter((item: any) => item.score > 0); // Remove products with 0 score
-
-    if (scoredProducts.length === 0) {
-      console.log(`[BOT] No products with positive scores for company ${companyId}`);
-      return { purchases, totalSpent: 0 };
-    }
-
-    // Step 4: Calculate total score for budget allocation
-    const totalScore = scoredProducts.reduce(
-      (sum: number, item: any) => sum + item.score,
-      0
-    );
-
-    if (totalScore <= 0 || !isFinite(totalScore)) {
-      console.log(`[BOT] Invalid total score for company ${companyId}`);
-      return { purchases, totalSpent: 0 };
-    }
-
-    console.log(`[BOT] Total attractiveness score for company ${companyId}: ${totalScore.toFixed(4)}`);
-
-    // Step 5: Allocate budget and make purchases
+    // Step 4: Buy from ALL products with allocated budget
     let remainingBudget = companyBudget;
     let purchaseCount = 0;
-    const MAX_PURCHASES_PER_COMPANY = 15; // Limit purchases per company to avoid overload
 
-    for (const { product, score } of scoredProducts) {
+    for (const cachedProduct of validProducts) {
       if (remainingBudget <= 0) {
         console.log(`[BOT] Budget exhausted for company ${companyId}`);
-        break;
-      }
-
-      if (purchaseCount >= MAX_PURCHASES_PER_COMPANY) {
-        console.log(`[BOT] Reached max purchases limit (${MAX_PURCHASES_PER_COMPANY}) for company ${companyId}`);
         break;
       }
 
@@ -458,20 +384,30 @@ async function executeBotPurchasesForCompany(
       let finalPrice = 0;
 
       try {
-        // Calculate this product's budget allocation
-        const budgetAllocation = Math.floor((score / totalScore) * companyBudget);
+        // Re-fetch product to get current stock (not cached value)
+        const product = await ctx.db.get(cachedProduct._id);
+        if (!product) {
+          console.warn(`[BOT] Product ${cachedProduct._id} no longer exists, skipping`);
+          continue;
+        }
+
+        // Use the per-product budget allocation (or remaining budget if smaller)
+        const productAllocation = Math.min(budgetPerProduct, remainingBudget);
 
         // Skip if allocation is too small to buy even one unit
-        if (budgetAllocation < product.price) {
+        if (productAllocation < product.price) {
           continue;
         }
 
         // Calculate desired quantity
-        quantity = Math.floor(budgetAllocation / product.price);
+        quantity = Math.floor(productAllocation / product.price);
 
-        // Apply stock constraint
+        // Apply CURRENT stock constraint (re-fetched above)
         if (product.stock !== undefined && product.stock !== null && product.stock > 0) {
           quantity = Math.min(quantity, product.stock);
+        } else if (product.stock !== undefined && product.stock !== null && product.stock <= 0) {
+          // Skip if product is out of stock
+          continue;
         }
 
         // Apply maxPerOrder constraint
@@ -482,17 +418,6 @@ async function executeBotPurchasesForCompany(
         // Skip if no quantity available
         if (quantity <= 0) {
           continue;
-        }
-
-        // Calculate actual purchase price
-        const purchasePrice = quantity * product.price;
-
-        // Adjust for remaining budget
-        if (purchasePrice > remainingBudget) {
-          quantity = Math.floor(remainingBudget / product.price);
-          if (quantity <= 0) {
-            continue;
-          }
         }
 
         finalPrice = quantity * product.price;
@@ -555,11 +480,11 @@ async function executeBotPurchasesForCompany(
           `[BOT] Company ${companyId} Purchase #${purchaseCount}: ${quantity}x ${product.name} for $${(finalPrice / 100).toFixed(2)}`
         );
       } catch (error) {
-        console.error(`[BOT] Error purchasing product ${product._id} from company ${companyId}:`, error);
+        console.error(`[BOT] Error purchasing product ${cachedProduct._id} from company ${companyId}:`, error);
         console.error(`[BOT] Error details:`, {
           message: error instanceof Error ? error.message : String(error),
-          productId: product._id,
-          productName: product.name,
+          productId: cachedProduct._id,
+          productName: cachedProduct.name,
           quantity,
           finalPrice,
         });
@@ -588,9 +513,9 @@ async function executeBotPurchasesForCompany(
   }
 }
 
-// Wrapper function to process all companies with budget allocation
-async function executeBotPurchasesAllCompanies(ctx: any, companiesLimit: number = 10, offset: number = 0) {
-  console.log(`[BOT] Starting bot purchases for up to ${companiesLimit} companies (offset: ${offset})`);
+// Wrapper function to process all companies with random budget allocation
+async function executeBotPurchasesAllCompanies(ctx: any, companiesLimit: number = 10000, offset: number = 0) {
+  console.log(`[BOT] Starting bot purchases with random budget allocation`);
   
   const allPurchases: Array<{
     productId: any;
@@ -599,38 +524,48 @@ async function executeBotPurchasesAllCompanies(ctx: any, companiesLimit: number 
     totalPrice: number;
   }> = [];
   
-  const BUDGET_PER_COMPANY = 5000000; // $50,000 in cents
-  const MIN_SPEND_PER_COMPANY = 3000000; // $30,000 in cents
+  const TOTAL_BUDGET = 250000000; // $2,500,000 in cents (minimum)
   
   try {
-    // Fetch ALL companies (no limit) and slice based on offset
+    // Fetch ALL companies
     const allCompanies = await ctx.db
       .query("companies")
       .collect(); // Get ALL companies
     
     console.log(`[BOT] Total companies in database: ${allCompanies.length}`);
     
-    // Apply offset and limit to get the specific batch
-    const companies = allCompanies.slice(offset, offset + companiesLimit);
-    
-    if (!companies || companies.length === 0) {
-      console.log(`[BOT] No companies found at offset ${offset}`);
+    if (!allCompanies || allCompanies.length === 0) {
+      console.log(`[BOT] No companies found`);
       return allPurchases;
     }
     
-    console.log(`[BOT] Processing ${companies.length} companies (offset ${offset} to ${offset + companies.length - 1})`);
+    // Generate random percentage allocations for each company
+    // Each company gets a random percentage, and they all add up to 100%
+    const randomPercentages = allCompanies.map(() => Math.random());
+    const totalRandomValue = randomPercentages.reduce((sum: number, val: number) => sum + val, 0);
+    const normalizedPercentages = randomPercentages.map((val: number) => val / totalRandomValue);
+    
+    console.log(`[BOT] Generated random budget allocations for ${allCompanies.length} companies`);
     
     let totalSpentAllCompanies = 0;
     let companiesProcessed = 0;
     
-    for (const company of companies) {
+    for (let i = 0; i < allCompanies.length; i++) {
+      const company = allCompanies[i];
+      const companyBudget = Math.floor(TOTAL_BUDGET * normalizedPercentages[i]);
+      
+      // Skip companies with minimal budget (less than $100)
+      if (companyBudget < 10000) {
+        continue;
+      }
+      
       try {
-        console.log(`[BOT] Processing company: ${company.name} (ID: ${company._id})`);
+        console.log(`[BOT] Processing company: ${company.name} (ID: ${company._id}), budget: $${(companyBudget / 100).toFixed(2)}`);
         const result = await executeBotPurchasesForCompany(
           ctx,
           company._id,
-          BUDGET_PER_COMPANY,
-          MIN_SPEND_PER_COMPANY
+          companyBudget,
+          0 // No minimum spend requirement per company
         );
         
         allPurchases.push(...result.purchases);
@@ -644,7 +579,7 @@ async function executeBotPurchasesAllCompanies(ctx: any, companiesLimit: number 
     }
     
     console.log(
-      `[BOT] All companies processed: ${companiesProcessed} companies, ${allPurchases.length} total purchases, $${(totalSpentAllCompanies / 100).toFixed(2)} total spent`
+      `[BOT] All companies processed: ${companiesProcessed} companies, ${allPurchases.length} total purchases, $${(totalSpentAllCompanies / 100).toFixed(2)} total spent (minimum: $${(TOTAL_BUDGET / 100).toFixed(2)})`
     );
     
     return allPurchases;
