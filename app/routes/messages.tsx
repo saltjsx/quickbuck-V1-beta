@@ -290,6 +290,7 @@ function MessagesPage() {
     setRecipientId(otherPartyId);
     setRecipientName(otherPartyName);
     setReplyingTo(message._id);
+    setShowComposeModal(true);
   };
 
   const handleViewThread = (message: MessageRecord) => {
@@ -691,9 +692,13 @@ function MessagesPage() {
       <Dialog open={showComposeModal} onOpenChange={setShowComposeModal}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle>New Message</DialogTitle>
+            <DialogTitle>
+              {replyingTo ? "Reply to Message" : "New Message"}
+            </DialogTitle>
             <DialogDescription>
-              Start a new conversation with another player
+              {replyingTo
+                ? `Replying to ${recipientName}`
+                : "Start a new conversation with another player"}
             </DialogDescription>
           </DialogHeader>
 
