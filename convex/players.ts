@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import type { Id } from "./_generated/dataModel";
+import type { Id, Doc } from "./_generated/dataModel";
 
 // Helper function to calculate net worth (includes company equity)
 // Exported so it can be reused in other modules like leaderboard.ts
@@ -42,12 +42,30 @@ export async function calculateNetWorth(ctx: any, playerId: Id<"players">) {
     .withIndex("by_ownerId", (q: any) => q.eq("ownerId", playerId))
     .collect();
 
+  // Fetch all stocks once to avoid multiple queries
+  const allStocks = await ctx.db.query("stocks").collect();
+  const stocksByCompanyId = new Map<Id<"companies">, Doc<"stocks">>(
+    allStocks
+      .filter((s: Doc<"stocks">) => s.companyId !== undefined)
+      .map((s: Doc<"stocks">) => [s.companyId!, s])
+  );
+
   for (const company of companies) {
-    // Add company balance (cash)
-    netWorth += company.balance;
-    // Add company market cap for public companies
-    if (company.isPublic && company.marketCap) {
-      netWorth += company.marketCap;
+    if (company.isPublic) {
+      // For public companies, use market cap from stock's current price
+      const stock = stocksByCompanyId.get(company._id);
+      
+      if (stock && stock.currentPrice) {
+        // Market cap = current price * outstanding shares
+        const marketCap = stock.currentPrice * (stock.outstandingShares ?? 1000000);
+        netWorth += marketCap;
+      } else if (company.marketCap) {
+        // Fallback to stored market cap if stock not found
+        netWorth += company.marketCap;
+      }
+    } else {
+      // For private companies, use company balance as equity
+      netWorth += company.balance;
     }
   }
 

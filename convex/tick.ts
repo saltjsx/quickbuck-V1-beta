@@ -29,7 +29,7 @@
 import { v } from "convex/values";
 import { mutation, internalMutation, query } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { Id } from "./_generated/dataModel";
+import { Id, Doc } from "./_generated/dataModel";
 
 const LOAN_INTEREST_BATCH_SIZE = 40;
 const LOAN_INTEREST_MAX_BATCHES = 3;
@@ -851,10 +851,34 @@ async function updatePlayerNetWorth(
       .withIndex("by_ownerId", (q: any) => q.eq("ownerId", player._id))
       .take(MAX_COMPANIES || 3);
 
+    // Fetch all stocks once to avoid multiple queries (only if there are public companies)
+    const hasPublicCompanies = companies.some((c: Doc<"companies">) => c.isPublic);
+    let stocksByCompanyId = new Map<Id<"companies">, Doc<"stocks">>();
+    if (hasPublicCompanies) {
+      const allStocks = await ctx.db.query("stocks").collect();
+      stocksByCompanyId = new Map<Id<"companies">, Doc<"stocks">>(
+        allStocks
+          .filter((s: Doc<"stocks">) => s.companyId !== undefined)
+          .map((s: Doc<"stocks">) => [s.companyId!, s])
+      );
+    }
+
     for (const company of companies) {
-      netWorth += company.balance;
-      if (company.isPublic && company.marketCap) {
-        netWorth += company.marketCap;
+      if (company.isPublic) {
+        // For public companies, use market cap from stock's current price
+        const stock = stocksByCompanyId.get(company._id);
+        
+        if (stock && stock.currentPrice) {
+          // Market cap = current price * outstanding shares
+          const marketCap = stock.currentPrice * (stock.outstandingShares ?? 1000000);
+          netWorth += marketCap;
+        } else if (company.marketCap) {
+          // Fallback to stored market cap if stock not found
+          netWorth += company.marketCap;
+        }
+      } else {
+        // For private companies, use company balance as equity
+        netWorth += company.balance;
       }
     }
 

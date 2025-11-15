@@ -135,14 +135,18 @@ export default function PortfolioPage() {
     ) || 0;
 
   const totalBalance = balance ?? 0;
+  // Calculate company equity
+  // For public companies: use market cap (from stock current price, already calculated in getPlayerCompanies)
+  // For private companies: use company balance
   const companyEquity = playerCompanies
     ? playerCompanies.reduce((sum, company) => {
-        let value = company.balance;
-        // Add market cap for public companies
-        if (company.isPublic && company.marketCap) {
-          value += company.marketCap;
+        if (company.isPublic) {
+          // For public companies, market cap is already calculated from stock price in getPlayerCompanies
+          return sum + (company.marketCap || 0);
+        } else {
+          // For private companies, use company balance as equity
+          return sum + company.balance;
         }
-        return sum + value;
       }, 0)
     : 0;
 

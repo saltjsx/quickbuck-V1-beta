@@ -282,10 +282,39 @@ export const getPlayerCompanies = query({
     playerId: v.id("players"),
   },
   handler: async (ctx, args) => {
-    return await ctx.db
+    const companies = await ctx.db
       .query("companies")
       .withIndex("by_ownerId", (q) => q.eq("ownerId", args.playerId))
       .collect();
+    
+    // For public companies, calculate market cap from stock's current price
+    // This ensures the market cap is always synced with the actual stock market
+    // Fetch all stocks once to avoid multiple queries
+    const allStocks = await ctx.db.query("stocks").collect();
+    const stocksByCompanyId = new Map(
+      allStocks
+        .filter((s) => s.companyId !== undefined)
+        .map((s) => [s.companyId!, s])
+    );
+    
+    const enrichedCompanies = companies.map((company) => {
+      if (company.isPublic) {
+        // Find the stock linked to this company
+        const stock = stocksByCompanyId.get(company._id);
+        
+        if (stock && stock.currentPrice) {
+          // Calculate market cap from current stock price
+          const currentMarketCap = stock.currentPrice * (stock.outstandingShares ?? 1000000);
+          return {
+            ...company,
+            marketCap: currentMarketCap,
+          };
+        }
+      }
+      return company;
+    });
+    
+    return enrichedCompanies;
   },
 });
 
