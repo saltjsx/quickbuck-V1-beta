@@ -327,6 +327,38 @@ function simulateVolume(stock: Doc<"stocks">): number {
   return Math.round(baseVolume * randomUniform(0.5, 1.5));
 }
 
+/**
+ * Sync company market cap when stock market cap changes
+ * This ensures the company page shows the correct market cap that matches the stock page
+ */
+async function syncCompanyMarketCap(
+  ctx: any,
+  stock: Doc<"stocks"> | Id<"stocks">,
+  newMarketCap: number
+): Promise<void> {
+  // Get companyId from stock (either from object or by fetching)
+  let companyId: Id<"companies"> | undefined;
+  if (typeof stock === "string") {
+    // stock is an Id, fetch it
+    const stockDoc = await ctx.db.get(stock);
+    companyId = stockDoc?.companyId;
+  } else {
+    // stock is a Doc, use it directly
+    companyId = stock.companyId;
+  }
+
+  // If stock is not linked to a company, nothing to sync
+  if (!companyId) {
+    return;
+  }
+
+  // Update the company's market cap to match the stock's market cap
+  await ctx.db.patch(companyId, {
+    marketCap: newMarketCap,
+    updatedAt: Date.now(),
+  });
+}
+
 // ============================================================================
 // INITIALIZATION
 // ============================================================================
@@ -504,6 +536,9 @@ export const updateStockPrices = internalMutation({
           lastUpdated: now,
         });
         
+        // Sync company market cap if stock is linked to a company
+        await syncCompanyMarketCap(ctx, stock, newMarketCap);
+        
         // Insert price history
         await ctx.db.insert("stockPriceHistory", {
           stockId: stock._id,
@@ -637,6 +672,9 @@ export const buyStock = mutation({
       marketCap: newMarketCap,
       lastUpdated: now,
     });
+    
+    // Sync company market cap if stock is linked to a company
+    await syncCompanyMarketCap(ctx, stock, newMarketCap);
     
     // Deduct balance
     await ctx.db.patch(player._id, {
@@ -810,6 +848,9 @@ export const sellStock = mutation({
       marketCap: newMarketCap,
       lastUpdated: now,
     });
+    
+    // Sync company market cap if stock is linked to a company
+    await syncCompanyMarketCap(ctx, stock, newMarketCap);
     
     // Add proceeds to balance
     await ctx.db.patch(player._id, {
@@ -1004,12 +1045,16 @@ export const buyStockForCompany = mutation({
     const now = Date.now();
     
     // Update stock price and market cap
+    const newMarketCap = newPrice * (stock.outstandingShares ?? 1000000);
     await ctx.db.patch(args.stockId, {
       currentPrice: newPrice,
-      marketCap: newPrice * (stock.outstandingShares ?? 1000000),
+      marketCap: newMarketCap,
       lastPriceChange: impact,
       lastUpdated: now,
     });
+    
+    // Sync company market cap if stock is linked to a company
+    await syncCompanyMarketCap(ctx, stock, newMarketCap);
     
     // Deduct from company balance
     await ctx.db.patch(args.companyId, {
@@ -1165,12 +1210,16 @@ export const sellStockForCompany = mutation({
     const now = Date.now();
     
     // Update stock price and market cap
+    const newMarketCap = newPrice * (stock.outstandingShares ?? 1000000);
     await ctx.db.patch(args.stockId, {
       currentPrice: newPrice,
-      marketCap: newPrice * (stock.outstandingShares ?? 1000000),
+      marketCap: newMarketCap,
       lastPriceChange: impact,
       lastUpdated: now,
     });
+    
+    // Sync company market cap if stock is linked to a company
+    await syncCompanyMarketCap(ctx, stock, newMarketCap);
     
     // Add to company balance
     await ctx.db.patch(args.companyId, {
