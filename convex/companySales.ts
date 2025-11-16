@@ -75,6 +75,16 @@ export const buyCompanyDirectly = mutation({
       throw new Error("Insufficient balance");
     }
 
+    // HARD LIMIT: Check if buyer has reached max companies (5)
+    const buyerCompanies = await ctx.db
+      .query("companies")
+      .withIndex("by_ownerId", (q) => q.eq("ownerId", args.buyerId))
+      .collect();
+
+    if (buyerCompanies.length >= 5) {
+      throw new Error("You have reached the maximum limit of 5 companies. Delete an existing company to purchase this one.");
+    }
+
     const now = Date.now();
 
     // Transfer payment
