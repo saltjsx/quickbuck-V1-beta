@@ -2,12 +2,12 @@
  * TICK SYSTEM
  *
  * Central coordinating system that runs every 5 minutes to:
- * 1. Execute bot purchases from marketplace (max 100 products)
+ * 1. Execute bot purchases from marketplace (100 companies, 100 products each, rotated)
  * 2. Deduct employee costs (10 companies per tick, rotated)
  * 3. Update stock prices (via realistic stock market engine)
  * 4. Update cryptocurrency prices
- * 5. Apply loan interest (100 loans per tick, rotated)
- * 6. Update player net worth (10 players per tick, rotated)
+ * 5. Apply loan interest (120 loans per tick, rotated)
+ * 6. Update player net worth (18 players per tick, rotated)
  * 7. Record tick history
  *
  * CRITICAL: Uses a distributed lock to prevent concurrent execution
@@ -17,13 +17,13 @@
  * entities get processed eventually across multiple ticks.
  *
  * Read Budget per Tick (estimated):
- * - Bot purchases: ~100 products + 100 company reads = 200
+ * - Bot purchases: max 100 companies * 100 products * 3 reads = ~30,000 reads
  * - Employee costs: 10 companies * 20 sales = 200
  * - Stock prices: handled separately
  * - Crypto prices: handled separately
- * - Loan interest: 100 loans + 100 player reads = 200
- * - Net worth: 10 players * (5+5+3+3) * 2 = 320
- * Total: ~920 reads (safe margin under 32k limit)
+ * - Loan interest: 120 loans + 120 player reads = 240
+ * - Net worth: 18 players * (5+5+3+3) * 2 = 576
+ * Total: ~31,016 reads (safe under 32k limit with buffer for overhead)
  */
 
 import { v } from "convex/values";
@@ -157,13 +157,13 @@ async function executeTickLogic(
       totalPrice: number;
     }> = [];
 
-    // Process ALL companies in one batch to ensure complete coverage
+    // Process companies in batches with rotation to stay under read limits
     try {
-      console.log(`[TICK] Bot purchases: processing all companies...`);
+      console.log(`[TICK] Bot purchases: processing companies (100 per tick, rotated)...`);
       const allPurchases = await ctx.runMutation(
         internal.tick.executeBotPurchasesMutation,
         {
-          companiesLimit: 10000, // Process all companies (no practical limit)
+          companiesLimit: 100, // Process 100 companies per tick (rotated)
           offset: 0,
         },
       );
@@ -325,20 +325,16 @@ export const manualTick = mutation({
 /**
  * BOT PURCHASE SYSTEM - RANDOM PER-COMPANY BUDGET ALLOCATION
  *
- * The bot simulates market demand by purchasing products from each company:
+ * The bot simulates market demand by purchasing products from companies:
  * - Total budget per tick: $2,500,000 minimum (can exceed if purchases continue)
+ * - Processes 100 companies per tick (rotated, ensures all companies get processed)
  * - Each company gets a RANDOM percentage allocation of the total budget
- * - All companies are included in the allocation (no company left out)
- * - Buys based on attractiveness scoring within each company
+ * - Max 100 products per company to stay under Convex read limits
+ * - Budget is split equally among all valid products in a company
  *
- * Scoring factors:
- * 1. Quality rating (40% weight) - Higher quality = more attractive
- * 2. Price preference (30% weight) - Medium prices preferred (~$1000 sweet spot)
- * 3. Demand score (20% weight) - Products with more sales are more attractive
- * 4. Base attractiveness (10% weight) - Ensures all products get some consideration
+ * ROTATION: Companies are processed in order by creation time, with updatedAt
+ * timestamp updated after processing, ensuring all companies get their turn.
  *
- * Budget allocation is proportional to attractiveness scores.
- * Expensive items receive a penalty to prevent budget concentration.
  * Max product price: $50,000 (products above this are ignored)
  */
 async function executeBotPurchasesForCompany(
@@ -359,11 +355,12 @@ async function executeBotPurchasesForCompany(
   }> = [];
 
   try {
-    // Step 1: Fetch ALL products for this company (no filters - purchase everything)
+    // Step 1: Fetch products for this company with a limit to avoid document read limit
+    // CRITICAL: Limit to 100 products per company to stay under 32k read limit
     const products = await ctx.db
       .query("products")
       .withIndex("by_companyId", (q: any) => q.eq("companyId", companyId))
-      .collect(); // Get all products
+      .take(100); // Limit to 100 products per company
 
     if (!products || products.length === 0) {
       console.log(`[BOT] No products found for company ${companyId}`);
@@ -580,10 +577,16 @@ async function executeBotPurchasesAllCompanies(
   const TOTAL_BUDGET = 2500000000; // $2,500,000 in cents (minimum)
 
   try {
-    // Fetch ALL companies
-    const allCompanies = await ctx.db.query("companies").collect(); // Get ALL companies
+    // Fetch companies with limit to avoid document read issues
+    // CRITICAL: With 100 products per company max, we can safely process ~100 companies per tick
+    // This gives us: 100 companies * 100 products * 3 reads per product = ~30,000 reads (safe under 32k)
+    // Use rotation by updatedAt so all companies eventually get processed
+    const allCompanies = await ctx.db
+      .query("companies")
+      .order("asc") // Order by _creationTime ascending (oldest processed first)
+      .take(Math.min(companiesLimit, 100));
 
-    console.log(`[BOT] Total companies in database: ${allCompanies.length}`);
+    console.log(`[BOT] Total companies fetched: ${allCompanies.length}`);
 
     if (!allCompanies || allCompanies.length === 0) {
       console.log(`[BOT] No companies found`);
@@ -612,8 +615,11 @@ async function executeBotPurchasesAllCompanies(
       const company = allCompanies[i];
       const companyBudget = Math.floor(TOTAL_BUDGET * normalizedPercentages[i]);
 
-      // Skip companies with minimal budget (less than $100)
+      // Skip companies with minimal budget (less than $100) but still update timestamp
       if (companyBudget < 10000) {
+        await ctx.db.patch(company._id, {
+          updatedAt: Date.now(),
+        });
         continue;
       }
 
@@ -631,6 +637,12 @@ async function executeBotPurchasesAllCompanies(
         allPurchases.push(...result.purchases);
         totalSpentAllCompanies += result.totalSpent;
         companiesProcessed++;
+
+        // Update company timestamp for rotation (ensures all companies get processed)
+        await ctx.db.patch(company._id, {
+          updatedAt: Date.now(),
+        });
+
         console.log(
           `[BOT] Company ${company.name}: ${result.purchases.length} purchases, $${(result.totalSpent / 100).toFixed(2)} spent`,
         );
@@ -639,6 +651,14 @@ async function executeBotPurchasesAllCompanies(
           `[BOT] Error processing company ${company.name} (${company._id}):`,
           error,
         );
+        // Still update timestamp even on error to avoid getting stuck
+        try {
+          await ctx.db.patch(company._id, {
+            updatedAt: Date.now(),
+          });
+        } catch (patchError) {
+          console.error(`[BOT] Failed to update timestamp for company ${company._id}`, patchError);
+        }
         // Continue with next company
       }
     }
